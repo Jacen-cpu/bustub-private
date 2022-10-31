@@ -1,0 +1,4 @@
+break starter_trie_test.cpp:26
+break starter_trie_test.cpp:86
+
+set exec-wrapper logging enabled
