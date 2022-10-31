@@ -24,8 +24,6 @@
 #include "common/rwlatch.h"
 
 #include "common/logger.h"
-#include <mutex>
-#include <shared_mutex>
 
 namespace bustub {
 
@@ -136,7 +134,6 @@ class TrieNode {
     // move ???
     children_.insert(std::make_pair(key_char, std::move(child)));
     return GetChildNode(key_char);
-
   }
 
   /**
@@ -223,7 +220,7 @@ class TrieNodeWithValue : public TrieNode {
    * @param trieNode TrieNode whose data is to be moved to TrieNodeWithValue
    * @param value
    */
-  TrieNodeWithValue(TrieNode &&trieNode, T value) : TrieNode(std::forward<TrieNode>(trieNode)), value_(value) {
+  TrieNodeWithValue(TrieNode &&trieNode, T value) : TrieNode(std::forward<TrieNode>(trieNode)), value_(std::move(value)) {
     is_end_ = true;
   }
 
@@ -267,11 +264,12 @@ class Trie {
   /* Root node of the trie */
   std::unique_ptr<TrieNode> root_;
   // /* Read-write lock for the trie */
-  // ReaderWriterLatch latch_;
-  mutable std::shared_mutex mutex_;
+  ReaderWriterLatch latch_;
 
   auto RemoveInner(const std::string &key, size_t i, std::unique_ptr<TrieNode> *curr, bool *success) -> bool {
-    if (curr == nullptr) { return false; }
+    if (curr == nullptr) {
+      return false;
+    }
     // base case
     if (i == key.size()) {
       *success = true;
@@ -338,13 +336,16 @@ class Trie {
    */
   template <typename T>
   auto Insert(const std::string &key, T value) -> bool {
-    std::shared_lock lock(mutex_);
+    latch_.WLock();
 
-    if (key.empty()) { return false; }
+    if (key.empty()) {
+      latch_.WUnlock();
+      return false;
+    }
 
     auto p = &root_;
 
-    for (char c: key) {
+    for (char c : key) {
       if (!(*p)->HasChild(c)) {
         p = (*p)->InsertChildNode(c, std::make_unique<TrieNode>(c));
       } else {
@@ -353,12 +354,14 @@ class Trie {
     }  // now the p is point to the last char of the key string.
 
     if ((*p)->IsEndNode()) {
+      latch_.WUnlock();
       return false;
     }
 
     // p = dynamic_cast<std::unique_ptr<TrieNodeWithValue<T>>*>(p);
     (*p) = std::make_unique<TrieNodeWithValue<T>>(std::move(*(*p)), value);
 
+    latch_.WUnlock();
     return true;
   }
 
@@ -380,10 +383,12 @@ class Trie {
    * @return True if key exists and is removed, false otherwise
    */
   auto Remove(const std::string &key) -> bool {
-    std::shared_lock lock(mutex_);
+    latch_.WLock();
 
     bool success = false;
     RemoveInner(key, 0, &root_, &success);
+
+    latch_.WUnlock();
     return success;
   }
 
@@ -407,19 +412,26 @@ class Trie {
    */
   template <typename T>
   auto GetValue(const std::string &key, bool *success) -> T {
-    std::shared_lock lock(mutex_);
+    latch_.RLock();
 
     *success = false;
     auto lst_pointer = GetEndNode(key);
     // get the fuck last node in a normal pointer
-    if (!lst_pointer) { return T(); }
+    if (!lst_pointer) {
+      latch_.RUnlock();
+      return T();
+    }
 
     auto last_node = &*(*lst_pointer);
     auto last_node_value = dynamic_cast<TrieNodeWithValue<T> *>(last_node);
     if (last_node_value) {
       *success = true;
+
+      latch_.RUnlock();
       return last_node_value->GetValue();
     }
+
+    latch_.RUnlock();
     return T();
   }
 };
