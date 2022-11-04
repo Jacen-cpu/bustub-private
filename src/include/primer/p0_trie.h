@@ -220,7 +220,8 @@ class TrieNodeWithValue : public TrieNode {
    * @param trieNode TrieNode whose data is to be moved to TrieNodeWithValue
    * @param value
    */
-  TrieNodeWithValue(TrieNode &&trieNode, T value) : TrieNode(std::forward<TrieNode>(trieNode)), value_(std::move(value)) {
+  TrieNodeWithValue(TrieNode &&trieNode, T value)
+      : TrieNode(std::forward<TrieNode>(trieNode)), value_(std::move(value)) {
     is_end_ = true;
   }
 
@@ -237,10 +238,7 @@ class TrieNodeWithValue : public TrieNode {
    * @param key_char Key char of this node
    * @param value Value of this node
    */
-  TrieNodeWithValue(char key_char, T value) : value_(value) {
-    key_char_ = key_char;
-    is_end_ = true;
-  }
+  TrieNodeWithValue(char key_char, T value) : TrieNode(key_char), value_(std::move(value)) { is_end_ = true; }
 
   /**
    * @brief Destroy the Trie Node With Value object
