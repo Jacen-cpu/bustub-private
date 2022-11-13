@@ -13,10 +13,10 @@
 #pragma once
 
 #include <limits>
-#include <list>
 #include <mutex>  // NOLINT
 #include <unordered_map>
-#include <vector>
+#include <utility>
+#include <boost/range/adaptor/indexed.hpp>
 
 #include "common/config.h"
 #include "common/macros.h"
@@ -132,14 +132,24 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
+  struct FrameAttr {
+    size_t last_used_time_{0};
+    size_t ref_time_{0};
+    bool is_evi_{false};
+    bool is_cached_{false};
+  };
+
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
+  size_t current_timestamp_{0};
+  size_t curr_size_{0};
+  size_t no_cached_size_{0};
+  std::unordered_map<frame_id_t, FrameAttr> frames_;
+  size_t replacer_size_;
+  size_t k_;
   std::mutex latch_;
+
 };
 
 }  // namespace bustub

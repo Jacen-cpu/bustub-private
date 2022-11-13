@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "common/util/hash_util.h"
 namespace bustub {
 
 template <typename K, typename V>

@@ -17,15 +17,23 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cstdint>
+#include <iterator>
 #include <list>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <utility>
 #include <vector>
+#include <cmath>
+#include <boost/range/adaptor/indexed.hpp>
 
 #include "container/hash/hash_table.h"
 
+
 namespace bustub {
+
+using std::move;
 
 /**
  * ExtendibleHashTable implements a hash table using the extendible hashing algorithm.
@@ -110,7 +118,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
    */
   class Bucket {
    public:
-    explicit Bucket(size_t size, int depth = 0);
+    explicit Bucket(size_t size, int depth = 1);
 
     /** @brief Check if a bucket is full. */
     inline auto IsFull() const -> bool { return list_.size() == size_; }
@@ -162,6 +170,17 @@ class ExtendibleHashTable : public HashTable<K, V> {
     size_t size_;
     int depth_;
     std::list<std::pair<K, V>> list_;
+    
+    
+    auto FindIndex(const K &key, int &index) -> bool {
+      for (auto const& each_pair : list_ | boost::adaptors::indexed(0)) {
+        if (each_pair.value().first == key) {
+          index = each_pair.index();
+          return true;
+        }
+      }
+      return false;
+    }
   };
 
  private:
@@ -180,8 +199,12 @@ class ExtendibleHashTable : public HashTable<K, V> {
    * @brief Redistribute the kv pairs in a full bucket.
    * @param bucket The bucket to be redistributed.
    */
-  auto RedistributeBucket(std::shared_ptr<Bucket> bucket) -> void;
+  auto RedistributeBucket(std::shared_ptr<Bucket> bucket, size_t index) -> void;
 
+  inline
+  auto GetNewBucket() -> std::shared_ptr<Bucket> {
+    return std::make_shared<Bucket>(bucket_size_);
+  }
   /*****************************************************************
    * Must acquire latch_ first before calling the below functions. *
    *****************************************************************/
@@ -191,6 +214,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
    * @param key The key to be hashed.
    * @return The entry index in the directory.
    */
+
   auto IndexOf(const K &key) -> size_t;
 
   auto GetGlobalDepthInternal() const -> int;
