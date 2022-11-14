@@ -10,6 +10,20 @@
 
 namespace bustub {
 
+TEST(ExtendibleHashTable, InsertSplit) {
+  auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(2);
+
+  table->Insert(1, "a");
+  table->Insert(2, "b");
+  table->Insert(4, "c");
+  table->Insert(6, "d");
+  table->Insert(10, "e");
+  EXPECT_EQ(1, table->GetLocalDepth(1));
+  EXPECT_EQ(1, table->GetLocalDepth(3));
+  EXPECT_EQ(1, table->GetLocalDepth(5));
+  EXPECT_EQ(1, table->GetLocalDepth(7));
+}
+
 TEST(ExtendibleHashTableTest, SampleTest) {
   auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(2);
 

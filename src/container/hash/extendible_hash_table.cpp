@@ -18,13 +18,15 @@
 #include <memory>
 #include <utility>
 #include "storage/page/page.h"
+#include "common/logger.h"
 
 namespace bustub {
 
 template <typename K, typename V>
 ExtendibleHashTable<K, V>::ExtendibleHashTable(size_t bucket_size)
-    : global_depth_(1), bucket_size_(bucket_size), num_buckets_(1) {
-  dir_ = std::vector<std::shared_ptr<Bucket>>(bucket_size, nullptr);
+    : global_depth_(0), bucket_size_(bucket_size), num_buckets_(0) {
+
+  dir_.insert(dir_.begin(), GetNewBucket());
 }
 
 template <typename K, typename V>
@@ -58,6 +60,7 @@ auto ExtendibleHashTable<K, V>::GetLocalDepthInternal(int dir_index) const -> in
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::GetNumBuckets() const -> int {
   std::scoped_lock<std::mutex> lock(latch_);
+  if (dir_.size() == 1) { return 1; }
   return GetNumBucketsInternal();
 }
 
@@ -86,9 +89,10 @@ auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
   latch_.lock();
-
   int dir_index = IndexOf(key);
-  auto target_bucket = dir_.at(dir_index);
+
+  auto target_it = dir_.begin() + dir_index;
+  auto target_bucket = *target_it;
 
   if (!target_bucket) {
     latch_.unlock();
@@ -96,6 +100,13 @@ auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
   }
 
   bool res = target_bucket->Remove(key);
+
+  // remove the bucket if it's empty.
+  if (target_bucket->IsEmpty()) {
+      //*target_it = nullptr;
+      num_buckets_--;
+  }
+
   latch_.unlock();
   return res;
 }
@@ -103,53 +114,82 @@ auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
 template <typename K, typename V>
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
   latch_.lock();
-
   int dir_index = IndexOf(key);
+
   auto target_bucket = dir_.at(dir_index);
 
   if (!target_bucket) {
     *(dir_.begin() + dir_index) = GetNewBucket();
-    num_buckets_++;
     target_bucket = dir_.at(dir_index);
+  }
+  
+  if (target_bucket->IsEmpty()) {
+    num_buckets_++;
   }
 
   // It's very tedious!
+  // we may change the target_bucket after redistribution.
   while (!target_bucket->Insert(key, value)) {
     if (target_bucket->GetDepth() == global_depth_) {
+      // increase the global depth.
       global_depth_++;
+
+      // double the dir_ size.
       int old_dir_size = dir_.size();
       dir_.resize(2 * old_dir_size);
-      std::copy(dir_.begin(), dir_.begin() + old_dir_size - 1, dir_.begin() + old_dir_size);
+      std::copy(dir_.begin(), dir_.begin() + old_dir_size, dir_.begin() + old_dir_size);
     }
+    // above code is OK.
 
-    RedistributeBucket(target_bucket, dir_index);
+    RedistributeBucket(target_bucket);
+    num_buckets_++;
+
+    // update the target_bucket
+    target_bucket = dir_.at(IndexOf(key));
   }
   latch_.unlock();
 }
 
+// the default distribution method
 template <typename K, typename V>
-auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucket, size_t index) -> void {
-  // get the brother bucket
-  size_t bucket_mod = pow(2, bucket->GetDepth());
-  size_t bro_index = bucket_mod > index ? index + bucket_mod : index - bucket_mod;
-  *(dir_.begin() + bro_index) = std::make_shared<Bucket>(bucket_size_, bucket->GetDepth());
-  auto bro_bucket = *(dir_.begin() + bro_index);
-
+auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucket) -> void {
   bucket->IncrementDepth();
-  bro_bucket->IncrementDepth();
+  int new_depth = bucket->GetDepth();
 
+  // auto &bro_items = bro_bucket->GetItems();
+  // create a new bucket.
+  auto new_bucket = std::make_shared<Bucket>(bucket_size_, new_depth);
+
+  auto &new_items = new_bucket->GetItems();
   auto &items = bucket->GetItems();
-  auto &bro_items = bro_bucket->GetItems();
 
+  // ---rehash and split the bucket---
   auto it = items.begin();
+  size_t first_index = ReHash(it->first, new_depth);
   while (it != items.end()) {
-    size_t rehash = IndexOf((*it).first);
-    if (rehash != index) {
-      bro_items.push_back(*it);
+    size_t rehash = ReHash(it->first, new_depth);
+    if (rehash == first_index) {
+      new_items.push_back(*it);
       it = items.erase(it);
+    } else {
+      ++it;
     }
-    ++it;
   }
+
+  // we get the two bucket, next we need to update the dir_.
+  // size_t power = global_depth_ - new_depth;
+  size_t head_num = pow(2, global_depth_ - new_depth);
+  size_t dir_index = 0;
+  for (size_t i = 0; i < head_num; ++i) {
+    dir_index = (i << new_depth) + first_index;
+    *(dir_.begin() + dir_index) = new_bucket;
+  }
+}
+
+template <typename K, typename V>
+auto ExtendibleHashTable<K, V>::ReHash(const K &key, int depth) -> size_t {
+  int mask = (1 << depth) - 1;
+  return std::hash<K>()(key) & mask;
 }
 
 //===--------------------------------------------------------------------===//

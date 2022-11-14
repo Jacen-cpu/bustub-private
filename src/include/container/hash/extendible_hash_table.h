@@ -118,7 +118,9 @@ class ExtendibleHashTable : public HashTable<K, V> {
    */
   class Bucket {
    public:
-    explicit Bucket(size_t size, int depth = 1);
+    explicit Bucket(size_t size, int depth = 0);
+    /** @brief Check if a bucket is full. */
+    inline auto IsEmpty() const -> bool { return list_.empty(); }
 
     /** @brief Check if a bucket is full. */
     inline auto IsFull() const -> bool { return list_.size() == size_; }
@@ -186,11 +188,13 @@ class ExtendibleHashTable : public HashTable<K, V> {
 
   // The following functions are completely optional, you can delete them if you have your own ideas.
 
+  auto ReHash(const K &key, int depth) -> size_t;
+
   /**
    * @brief Redistribute the kv pairs in a full bucket.
    * @param bucket The bucket to be redistributed.
    */
-  auto RedistributeBucket(std::shared_ptr<Bucket> bucket, size_t index) -> void;
+  auto RedistributeBucket(std::shared_ptr<Bucket> bucket) -> void;
 
   inline auto GetNewBucket() -> std::shared_ptr<Bucket> { return std::make_shared<Bucket>(bucket_size_); }
   /*****************************************************************
