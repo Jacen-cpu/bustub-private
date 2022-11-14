@@ -16,7 +16,6 @@
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <utility>
-#include <boost/range/adaptor/indexed.hpp>
 
 #include "common/config.h"
 #include "common/macros.h"
@@ -149,7 +148,6 @@ class LRUKReplacer {
   size_t replacer_size_;
   size_t k_;
   std::mutex latch_;
-
 };
 
 }  // namespace bustub

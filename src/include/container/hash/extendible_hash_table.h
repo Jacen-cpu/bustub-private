@@ -17,19 +17,19 @@
 
 #pragma once
 
-#include <algorithm>
-#include <cstdint>
-#include <iterator>
+#include "container/hash/hash_table.h"
+
 #include <list>
+#include <vector>
+
+#include <cmath>
+#include <cstdint>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <utility>
-#include <vector>
-#include <cmath>
-#include <boost/range/adaptor/indexed.hpp>
 
-#include "container/hash/hash_table.h"
-
+// #include <algorithm>
+// #include <iterator>
 
 namespace bustub {
 
@@ -170,17 +170,8 @@ class ExtendibleHashTable : public HashTable<K, V> {
     size_t size_;
     int depth_;
     std::list<std::pair<K, V>> list_;
-    
-    
-    auto FindIndex(const K &key, int &index) -> bool {
-      for (auto const& each_pair : list_ | boost::adaptors::indexed(0)) {
-        if (each_pair.value().first == key) {
-          index = each_pair.index();
-          return true;
-        }
-      }
-      return false;
-    }
+
+    auto FindIndex(const K &key, int &index) -> bool;
   };
 
  private:
@@ -201,10 +192,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
    */
   auto RedistributeBucket(std::shared_ptr<Bucket> bucket, size_t index) -> void;
 
-  inline
-  auto GetNewBucket() -> std::shared_ptr<Bucket> {
-    return std::make_shared<Bucket>(bucket_size_);
-  }
+  inline auto GetNewBucket() -> std::shared_ptr<Bucket> { return std::make_shared<Bucket>(bucket_size_); }
   /*****************************************************************
    * Must acquire latch_ first before calling the below functions. *
    *****************************************************************/

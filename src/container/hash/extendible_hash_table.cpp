@@ -10,14 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "container/hash/extendible_hash_table.h"
 #include <cassert>
 #include <cstdlib>
 #include <functional>
-#include <list>
+#include <iterator>
 #include <memory>
 #include <utility>
-
-#include "container/hash/extendible_hash_table.h"
 #include "storage/page/page.h"
 
 namespace bustub {
@@ -25,8 +24,8 @@ namespace bustub {
 template <typename K, typename V>
 ExtendibleHashTable<K, V>::ExtendibleHashTable(size_t bucket_size)
     : global_depth_(1), bucket_size_(bucket_size), num_buckets_(1) {
-      dir_ = std::vector<std::shared_ptr<Bucket>>(bucket_size, nullptr);
-    }
+  dir_ = std::vector<std::shared_ptr<Bucket>>(bucket_size, nullptr);
+}
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::IndexOf(const K &key) -> size_t {
@@ -90,12 +89,12 @@ auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
 
   int dir_index = IndexOf(key);
   auto target_bucket = dir_.at(dir_index);
-    
-  if (!target_bucket) { 
+
+  if (!target_bucket) {
     latch_.unlock();
     return false;
   }
-    
+
   bool res = target_bucket->Remove(key);
   latch_.unlock();
   return res;
@@ -115,7 +114,7 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
   }
 
   // It's very tedious!
-  while(!target_bucket->Insert(key, value)) {
+  while (!target_bucket->Insert(key, value)) {
     if (target_bucket->GetDepth() == global_depth_) {
       global_depth_++;
       int old_dir_size = dir_.size();
@@ -134,7 +133,7 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucke
   size_t bucket_mod = pow(2, bucket->GetDepth());
   size_t bro_index = bucket_mod > index ? index + bucket_mod : index - bucket_mod;
   *(dir_.begin() + bro_index) = std::make_shared<Bucket>(bucket_size_, bucket->GetDepth());
-  auto bro_bucket = *(dir_.begin() + bro_index); 
+  auto bro_bucket = *(dir_.begin() + bro_index);
 
   bucket->IncrementDepth();
   bro_bucket->IncrementDepth();
@@ -143,17 +142,15 @@ auto ExtendibleHashTable<K, V>::RedistributeBucket(std::shared_ptr<Bucket> bucke
   auto &bro_items = bro_bucket->GetItems();
 
   auto it = items.begin();
-  while (it != items.end())
-  {
-      size_t rehash = IndexOf((*it).first);
-      if (rehash != index) {
-        bro_items.push_back(*it);
-        it = items.erase(it);
-      }
-      ++it;
+  while (it != items.end()) {
+    size_t rehash = IndexOf((*it).first);
+    if (rehash != index) {
+      bro_items.push_back(*it);
+      it = items.erase(it);
+    }
+    ++it;
   }
 }
-
 
 //===--------------------------------------------------------------------===//
 // Bucket
@@ -167,7 +164,7 @@ auto ExtendibleHashTable<K, V>::Bucket::Find(const K &key, V &value) -> bool {
   if (FindIndex(key, index)) {
     auto it = list_.begin();
     std::advance(it, index);
-    value = (*it).second;       
+    value = (*it).second;
     return true;
   }
   return false;
@@ -176,7 +173,9 @@ auto ExtendibleHashTable<K, V>::Bucket::Find(const K &key, V &value) -> bool {
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Remove(const K &key) -> bool {
   int index = 0;
-  if (!FindIndex(key, index)) { return false; }
+  if (!FindIndex(key, index)) {
+    return false;
+  }
   auto it = list_.begin();
   std::advance(it, index);
 
@@ -188,7 +187,9 @@ template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> bool {
   int index = 0;
 
-  if (IsFull()) { return false; }
+  if (IsFull()) {
+    return false;
+  }
 
   if (FindIndex(key, index)) {
     auto it = list_.begin();
@@ -200,6 +201,17 @@ auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> 
 
   list_.push_back(move(std::make_pair(key, value)));
   return true;
+}
+
+template <typename K, typename V>
+auto ExtendibleHashTable<K, V>::Bucket::FindIndex(const K &key, int &index) -> bool {
+  for (auto it = list_.begin(); it != list_.end(); it++) {
+    if (it->first == key) {
+      index = std::distance(list_.begin(), it);
+      return true;
+    }
+  }
+  return false;
 }
 
 template class ExtendibleHashTable<page_id_t, Page *>;
