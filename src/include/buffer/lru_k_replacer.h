@@ -14,7 +14,10 @@
 
 #include <limits>
 #include <mutex>  // NOLINT
+#include <string>
 #include <unordered_map>
+#include <deque>
+#include <queue>
 #include <utility>
 
 #include "common/config.h"
@@ -131,23 +134,32 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
-  struct FrameAttr {
-    size_t last_used_time_{0};
+  struct Frame {
+    frame_id_t frame_id_;
     size_t ref_time_{0};
     bool is_evi_{false};
     bool is_cached_{false};
+    bool is_alive_{false};
   };
 
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  size_t current_timestamp_{0};
   size_t curr_size_{0};
-  size_t no_cached_size_{0};
-  std::unordered_map<frame_id_t, FrameAttr> frames_;
+
+  std::unordered_map<frame_id_t, Frame> frames_;
+  std::deque<frame_id_t> cached_queue_;
+  std::deque<frame_id_t> no_cached_queue_; 
+
   size_t replacer_size_;
   size_t k_;
+
   std::mutex latch_;
+  
+  inline 
+  auto CheckFrame(frame_id_t frame_id) -> bool {
+    return static_cast<size_t>(frame_id) <= replacer_size_;
+  }
 };
 
 }  // namespace bustub

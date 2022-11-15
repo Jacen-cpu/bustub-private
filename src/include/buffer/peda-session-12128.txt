@@ -1,7 +1,8 @@
 break extendible_hash_table_test.cpp:38
 break extendible_hash_table.cpp:57
-break lru_k_replacer_test.cpp:48
-break lru_k_replacer_test.cpp:98
+break lru_k_replacer_test.cpp:23
+break lru_k_replacer_test.cpp:60
+break lru_k_replacer.cpp:47
 break starter_trie_test.cpp:26
 
 set exec-wrapper logging enabled
