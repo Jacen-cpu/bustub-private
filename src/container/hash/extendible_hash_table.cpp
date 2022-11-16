@@ -17,15 +17,14 @@
 #include <iterator>
 #include <memory>
 #include <utility>
-#include "storage/page/page.h"
 #include "common/logger.h"
+#include "storage/page/page.h"
 
 namespace bustub {
 
 template <typename K, typename V>
 ExtendibleHashTable<K, V>::ExtendibleHashTable(size_t bucket_size)
     : global_depth_(0), bucket_size_(bucket_size), num_buckets_(0) {
-
   dir_.insert(dir_.begin(), GetNewBucket());
 }
 
@@ -60,7 +59,9 @@ auto ExtendibleHashTable<K, V>::GetLocalDepthInternal(int dir_index) const -> in
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::GetNumBuckets() const -> int {
   std::scoped_lock<std::mutex> lock(latch_);
-  if (dir_.size() == 1) { return 1; }
+  if (dir_.size() == 1) {
+    return 1;
+  }
   return GetNumBucketsInternal();
 }
 
@@ -103,8 +104,7 @@ auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
 
   // remove the bucket if it's empty.
   if (target_bucket->IsEmpty()) {
-      //*target_it = nullptr;
-      num_buckets_--;
+    num_buckets_--;
   }
 
   latch_.unlock();
@@ -122,7 +122,7 @@ void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
     *(dir_.begin() + dir_index) = GetNewBucket();
     target_bucket = dir_.at(dir_index);
   }
-  
+
   if (target_bucket->IsEmpty()) {
     num_buckets_++;
   }

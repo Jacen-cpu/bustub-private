@@ -23,7 +23,34 @@ namespace bustub {
 
 // NOLINTNEXTLINE
 // Check whether pages containing terminal characters can be recovered
-TEST(BufferPoolManagerInstanceTest, DISABLED_BinaryDataTest) {
+TEST(BufferPoolManagerInstanceTest, Dirty) {
+  const std::string db_name = "test.db";
+  const size_t buffer_pool_size = 1;
+  const size_t k = 5;
+
+  std::random_device r;
+  std::default_random_engine rng(r());
+  std::uniform_int_distribution<char> uniform_dist(0);
+
+  auto *disk_manager = new DiskManager(db_name);
+  auto *bpm = new BufferPoolManagerInstance(buffer_pool_size, disk_manager, k);
+
+  page_id_t page_id_temp;
+  auto *page0 = bpm->NewPage(&page_id_temp);
+  bpm->UnpinPage(0, true);
+  bpm->FetchPage(0);
+  bpm->UnpinPage(0, false);
+  bpm->FetchPage(0);
+  EXPECT_EQ(true, page0->IsDirty());
+  bpm->UnpinPage(0, false);
+  auto *page1 = bpm->NewPage(&page_id_temp);
+  EXPECT_EQ(false, page1->IsDirty());
+
+  delete bpm;
+  delete disk_manager;
+}
+
+TEST(BufferPoolManagerInstanceTest, BinaryDataTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
   const size_t k = 5;
@@ -89,7 +116,7 @@ TEST(BufferPoolManagerInstanceTest, DISABLED_BinaryDataTest) {
 }
 
 // NOLINTNEXTLINE
-TEST(BufferPoolManagerInstanceTest, DISABLED_SampleTest) {
+TEST(BufferPoolManagerInstanceTest, SampleTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
   const size_t k = 5;

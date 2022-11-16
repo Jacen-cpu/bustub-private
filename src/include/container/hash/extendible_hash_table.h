@@ -17,19 +17,14 @@
 
 #pragma once
 
-#include "container/hash/hash_table.h"
-
-#include <list>
-#include <vector>
-
 #include <cmath>
 #include <cstdint>
+#include <list>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <utility>
-
-// #include <algorithm>
-// #include <iterator>
+#include <vector>
+#include "container/hash/hash_table.h"
 
 namespace bustub {
 
