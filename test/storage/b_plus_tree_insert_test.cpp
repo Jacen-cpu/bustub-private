@@ -20,7 +20,7 @@
 
 namespace bustub {
 
-TEST(BPlusTreeTests, DISABLED_InsertTest1) {
+TEST(BPlusTreeTests, InsertTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -40,8 +40,8 @@ TEST(BPlusTreeTests, DISABLED_InsertTest1) {
   ASSERT_EQ(page_id, HEADER_PAGE_ID);
   (void)header_page;
 
-  int64_t key = 42;
-  int64_t value = key & 0xFFFFFFFF;
+  int64_t key = 42; // page_id is 42
+  int64_t value = key & 0xFFFFFFFF; // slot is low 32 bit
   rid.Set(static_cast<int32_t>(key), value);
   index_key.SetFromInteger(key);
   tree.Insert(index_key, rid, transaction);
@@ -85,7 +85,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
 
   std::vector<int64_t> keys = {1, 2, 3, 4, 5};
   for (auto key : keys) {
-    int64_t value = key & 0xFFFFFFFF;
+    int64_t value = key & 0xFFFFFFFF; // this is the offset, the size of one page is 8 byte * 2 ^ 32
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);

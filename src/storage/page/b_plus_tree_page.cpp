@@ -18,7 +18,7 @@ namespace bustub {
  * Page type enum class is defined in b_plus_tree_page.h
  */
 auto BPlusTreePage::IsLeafPage() const -> bool { return page_type_ == IndexPageType::LEAF_PAGE; }
-auto BPlusTreePage::IsRootPage() const -> bool { return static_cast<bool>(parent_page_id_); } // how to judge it???
+auto BPlusTreePage::IsRootPage() const -> bool { return page_type_ == IndexPageType::INVALID_INDEX_PAGE; } // how to judge it???
 void BPlusTreePage::SetPageType(IndexPageType page_type) { page_type_ = page_type; }
 
 /*

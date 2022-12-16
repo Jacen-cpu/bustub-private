@@ -1,9 +1,13 @@
 #include <string>
 
+#include "common/config.h"
 #include "common/exception.h"
 #include "common/logger.h"
 #include "common/rid.h"
 #include "storage/index/b_plus_tree.h"
+#include "storage/page/b_plus_tree_internal_page.h"
+#include "storage/page/b_plus_tree_leaf_page.h"
+#include "storage/page/b_plus_tree_page.h"
 #include "storage/page/header_page.h"
 
 namespace bustub {
@@ -21,7 +25,7 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
  * Helper function to decide whether current b+tree is empty
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
+auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_PAGE_ID; }
 /*****************************************************************************
  * SEARCH
  *****************************************************************************/
@@ -32,6 +36,37 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
+  if (IsEmpty()) { return false; }
+  // fetch the page
+  auto curr_node_page = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(root_page_id_)->GetData());
+  
+  while (!curr_node_page->IsLeafPage()) {
+    // guide by the internal page (key) [...).
+    // do some comparations
+    auto internal_node_page = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> *>(curr_node_page);
+    page_id_t next_page_id = [&]() -> page_id_t {
+      for (int i = 0; i < internal_node_page->GetSize(); ++i) {
+        KeyType cur_key = internal_node_page->KeyAt(i);
+        if (comparator_(cur_key, key) == 1) { 
+          return internal_node_page->ValueAt(i);
+        }
+      }
+      return internal_node_page->ValueAt(internal_node_page->GetSize() - 1);
+    }(); // find the next page id (down), (maybe lambda is good)
+
+    curr_node_page = reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(next_page_id)->GetData());
+  }
+  
+  // get the value
+  auto leaf_node_page = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *>(curr_node_page);
+  for (int i = 0; i < curr_node_page->GetSize(); ++i) {
+    KeyType cur_key = leaf_node_page->KeyAt(i);
+    if (comparator_(cur_key, key) == 0) {
+      result->push_back(leaf_node_page->ValueAt(i));
+      return true;
+    }
+  }
+  
   return false;
 }
 
