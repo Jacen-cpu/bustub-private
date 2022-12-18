@@ -11,10 +11,12 @@
 
 #include <cassert>
 #include <sstream>
+#include <utility>
 
 #include "common/exception.h"
 #include "common/rid.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
+#include "storage/page/b_plus_tree_page.h"
 
 namespace bustub {
 
@@ -32,6 +34,7 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, in
   SetPageId(page_id);
   SetParentPageId(parent_id);
   SetMaxSize(max_size);
+  SetPageType(IndexPageType::LEAF_PAGE);
 }
 
 /**
@@ -51,15 +54,59 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  assert(index < *(&array_ + 1) - array_);
   return array_[index].first;
 }
 
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType { 
-  assert(index < *(&array_ + 1) - array_);
   return array_[index].second;
+}
+
+/*
+ * what we should know when split:
+ */
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> bool {
+  // check deplicate
+  if (Search(key, comparator) != -1) {
+    return false;
+  }
+
+  IncreaseSize(1);
+  int j = GetSize() - 1;
+  array_[j] = std::make_pair(key, value);
+
+  int compare = 0;
+  while(j > 0 && (compare = comparator(KeyAt(j), KeyAt(j - 1))) == -1) {
+    auto temp = array_[j];
+    array_[j] = array_[j - 1];
+    array_[j - 1] = temp;
+    j--;
+  }
+
+  return true;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Search(const KeyType &key, const KeyComparator &comparator) const -> int {
+  int left = 0;
+  int right = GetSize() - 1;
+
+  while (left <= right) {
+    int mid = (left + right) / 2;
+    if (comparator(key, KeyAt(mid)) == 0) {
+      return mid;
+    }
+    if (comparator(key, KeyAt(mid)) == 1) {
+      left = mid + 1;
+    } 
+    else {
+      right = mid - 1;
+    }
+  }
+  
+  return -1;
 }
 
 template class BPlusTreeLeafPage<GenericKey<4>, RID, GenericComparator<4>>;

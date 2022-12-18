@@ -14,10 +14,12 @@
 #include <string>
 #include <vector>
 
+#include "common/config.h"
 #include "concurrency/transaction.h"
 #include "storage/index/index_iterator.h"
 #include "storage/page/b_plus_tree_internal_page.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
+#include "storage/page/b_plus_tree_page.h"
 
 namespace bustub {
 
@@ -81,6 +83,16 @@ class BPlusTree {
   void ToGraph(BPlusTreePage *page, BufferPoolManager *bpm, std::ofstream &out) const;
 
   void ToString(BPlusTreePage *page, BufferPoolManager *bpm) const;
+  
+  auto FindLeafPage(const KeyType &key) -> BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *;
+  
+  void SplitLeaf(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> * over_node);
+
+  void SplitInternal(
+    BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> * over_node,
+    BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> * new_internal);
+    
+  void UpdateParentId(page_id_t page_id, page_id_t p_page_id);
 
   // member variable
   std::string index_name_;
