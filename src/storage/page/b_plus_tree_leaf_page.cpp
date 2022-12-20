@@ -12,7 +12,9 @@
 #include <cassert>
 #include <sstream>
 #include <utility>
+#include <cstring>
 
+#include "buffer/buffer_pool_manager.h"
 #include "common/exception.h"
 #include "common/rid.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
@@ -87,6 +89,46 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &val
 
   return true;
 }
+
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Steal(MappingType * value) -> bool {
+  if (GetSize() - 1 < GetMaxSize() / 2) {
+    return false;
+  }
+
+  std::copy(array_ + 1, array_ + GetSize(), array_);
+  IncreaseSize(-1);
+
+  *value = array_[0];
+  return true;
+}
+
+
+/* three case to return
+ * 1. no key in the array, return false.
+ * 2. success remove the value.
+ * 3. remove the first value, we need to update the parent key.
+ */
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator &comparator, bool * need_update) -> bool {
+  int index = Search(key, comparator);
+  if (index == -1) {
+    return false;
+  }
+
+  /* check if we need to update the parent key*/
+  if (index == 0) {
+    *need_update = true;
+  }
+
+  std::copy(array_ + index + 1, array_ + GetSize(), array_ + index);
+  IncreaseSize(-1);
+
+  return true;
+}
+
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::Search(const KeyType &key, const KeyComparator &comparator) const -> int {

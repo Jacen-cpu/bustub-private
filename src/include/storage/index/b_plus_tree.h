@@ -92,7 +92,13 @@ class BPlusTree {
     BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> * over_node,
     BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> * new_internal);
     
+  void Merge(page_id_t parent_id);
+    
   void UpdateParentId(page_id_t page_id, page_id_t p_page_id);
+  
+  auto StealSibling(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> * deleted_leaf, MappingType * value) -> bool;
+
+  void UpdateParentKey(const KeyType &old_key, const KeyType &new_key, page_id_t parent_id);
 
   // member variable
   std::string index_name_;
