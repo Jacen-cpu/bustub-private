@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "buffer/buffer_pool_manager.h"
+#include "common/config.h"
 #include "storage/page/b_plus_tree_page.h"
 
 namespace bustub {
@@ -42,6 +43,8 @@ namespace bustub {
  */
 INDEX_TEMPLATE_ARGUMENTS
 class BPlusTreeLeafPage : public BPlusTreePage {
+ using LeafPage = BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>;
+
  public:
   // After creating a new leaf page from buffer pool, must call initialize
   // method to set default values
@@ -49,19 +52,28 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   // helper methods
   auto GetNextPageId() const -> page_id_t;
   void SetNextPageId(page_id_t next_page_id);
+  auto GetPrevPageId() const -> page_id_t;
+  void SetPrevPageId(page_id_t prev_page_id);
   auto KeyAt(int index) const -> KeyType;
   auto ValueAt(int index) const -> ValueType;
   auto Search(const KeyType &key, const KeyComparator &comparator) const -> int;
   auto Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> bool;
+  void InsertFirst(const MappingType *value);
+  void InsertLast(const MappingType *value);
   auto Remove(const KeyType &key, const KeyComparator &comparator, bool * need_update) -> bool;
-  auto Steal(MappingType * value) -> bool;
-  auto Merge() -> bool;
+  auto StealFirst(MappingType * value) -> bool;
+  auto StealLast(MappingType *value) -> bool;
+  void MergeFromLeft(LeafPage * rest_leaf);
+  void MergeFromRight(LeafPage * rest_leaf);
+  inline auto IsLast() -> bool { return next_page_id_ == INVALID_PAGE_ID; }
+  inline auto IsFirst() -> bool { return prev_page_id_ == INVALID_PAGE_ID; }
   inline auto GetArray() -> MappingType * { return array_; }
   inline auto NeedRedsb() -> bool { return GetSize() < GetMaxSize() / 2; }
 
  private:
 
   page_id_t next_page_id_;
+  page_id_t prev_page_id_;
   // Flexible array member for page data.
   MappingType array_[1];
 };

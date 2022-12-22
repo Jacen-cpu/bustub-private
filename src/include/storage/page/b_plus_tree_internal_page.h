@@ -12,6 +12,7 @@
 
 #include <queue>
 
+#include "common/config.h"
 #include "storage/page/b_plus_tree_page.h"
 
 namespace bustub {
@@ -34,6 +35,8 @@ namespace bustub {
  */
 INDEX_TEMPLATE_ARGUMENTS
 class BPlusTreeInternalPage : public BPlusTreePage {
+  using InternalPage = BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>;
+
  public:
   // must call initialize method after "create" a new node
   void Init(page_id_t page_id, page_id_t parent_id = INVALID_PAGE_ID, int max_size = INTERNAL_PAGE_SIZE);
@@ -42,10 +45,18 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   void SetKeyAt(int index, const KeyType &key);
   auto ValueAt(int index) const -> ValueType;
   auto Search(const KeyType &key, const KeyComparator &comparator) const -> int;
+  auto SearchPosition(page_id_t page_id) const -> int;
   auto Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> bool;
-  // auto Sort(const KeyComparator &comparator) -> bool;
+  void InsertFirst(const MappingType *value);
+  void InsertLast(const MappingType *value);
+  void Remove(int index);
+  void MergeFromLeft(InternalPage * rest_page);
+  void MergeFromRight(InternalPage * rest_page);
+  auto StealLast(MappingType * value) -> bool;
+  auto StealFirst(MappingType * value) -> bool;
   inline auto GetArray() -> MappingType * { return array_; }
   inline void SetFirstPoint(const ValueType &value) { array_[0].second = value; }
+  auto NeedRedsb() -> bool;
 
  private:
   // Flexible array member for page data.

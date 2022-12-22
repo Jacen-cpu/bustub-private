@@ -149,7 +149,7 @@ TEST(BPlusTreeTests, InsertTest3) {
   ASSERT_EQ(page_id, HEADER_PAGE_ID);
   (void)header_page;
 
-  std::vector<int64_t> keys = {5, 4, 3, 2, 1};
+  std::vector<int64_t> keys = {5, 4, 3, 2, 1, 7, 9, 11, 23};
   int i = 1;
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;

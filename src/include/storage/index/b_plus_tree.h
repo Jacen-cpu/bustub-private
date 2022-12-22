@@ -84,26 +84,39 @@ class BPlusTree {
 
   void ToString(BPlusTreePage *page, BufferPoolManager *bpm) const;
   
-  auto FindLeafPage(const KeyType &key) -> BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> *;
+  auto FindLeafPage(const KeyType &key) -> LeafPage *;
   
-  void SplitLeaf(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> * over_node);
+  void SplitLeaf(LeafPage * over_node);
 
-  void SplitInternal(
-    BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> * over_node,
-    BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator> * new_internal);
+  void SplitInternal(InternalPage * over_node, InternalPage * new_internal);
     
-  void Merge(page_id_t parent_id);
+  void Merge(BPlusTreePage *merge_node);
     
   void UpdateParentId(page_id_t page_id, page_id_t p_page_id);
-  
-  auto StealSibling(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> * deleted_leaf, MappingType * value) -> bool;
+
+  auto StealSibling(LeafPage * deleted_leaf) -> bool;
+
+  auto StealInternal(
+    InternalPage * deleting_internal,
+    InternalPage * parent_internal,
+    InternalPage * neber_internal, 
+    int target_index,
+    bool is_last) -> bool;
 
   void UpdateParentKey(const KeyType &old_key, const KeyType &new_key, page_id_t parent_id);
+
+  void UpdateRootParentKey(const KeyType &old_key, const KeyType &new_key, BPlusTreePage * leaf_page, BPlusTreePage *right_page);
+  
+  /* some basic operations */
+  auto GetInternalPage(page_id_t parent_id) -> InternalPage *;
+  auto GetLeafPage(page_id_t next_id) -> LeafPage *;
+
+  auto GetLeftMostKey(InternalPage * internal_page) -> KeyType;
 
   // member variable
   std::string index_name_;
   page_id_t root_page_id_;
-  BufferPoolManager *buffer_pool_manager_;
+  BufferPoolManager * buffer_pool_manager_;
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;

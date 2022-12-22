@@ -59,7 +59,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> bool {
   // check deplicate
-  if (Search(key, comparator) != -1) {
+  if (Search(key, comparator) != 0) {
     return false;
   }
 
@@ -81,6 +81,73 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType 
 }
 
 INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertFirst(const MappingType *value) {
+  std::copy(array_, array_ + GetSize() + 1, array_ + 1);
+  array_[0] = *value;
+  IncreaseSize(1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertLast(const MappingType *value) {
+  IncreaseSize(1);
+  array_[GetSize()] = *value;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {
+  std::copy(array_ + index + 1, array_ + GetSize() + 1, array_ + index);
+  IncreaseSize(-1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::NeedRedsb() -> bool {
+  return IsRootPage() ? GetSize() < 1 : GetSize() < (GetMaxSize() + 1) / 2 - 1;
+}
+
+// INDEX_TEMPLATE_ARGUMENTS
+// void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MergeFromLeft(InternalPage * rest_page) {
+  // auto size = rest_page->GetSize();
+  // auto rest_array = rest_page->GetArray(); 
+
+  // std::copy(array_, array_ + GetSize() + 1, array_ + size + 1); 
+  // std::copy(rest_array, rest_array + size, array_);
+  // IncreaseSize(size);
+// }
+
+// INDEX_TEMPLATE_ARGUMENTS
+// void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MergeFromRight(InternalPage * rest_page) {
+  // auto size = rest_page->GetSize();
+  // auto rest_array = rest_page->GetArray(); 
+
+  // std::copy(rest_array, rest_array + size, array_ + GetSize());
+  // IncreaseSize(size);
+// }
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealFirst(MappingType * value) -> bool {
+  if (GetSize() - 1 < GetSize() < (GetMaxSize() + 1) / 2 - 1) { return false; }
+  std::copy(array_ + 1, array_ + GetSize() + 1, array_);
+  IncreaseSize(-1);
+  *value = array_[0];
+  return true;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealLast(MappingType * value) -> bool {
+  if (GetSize() - 1 < GetSize() < (GetMaxSize() + 1) / 2 - 1) { return false; }
+  *value = array_[GetSize()];
+  IncreaseSize(-1);
+  return true;
+}
+
+/**
+ * @brief 
+ * 
+ * @param key 
+ * @param comparator 
+ * @return int 
+ */
+INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Search(const KeyType &key, const KeyComparator &comparator) const -> int {
   int left = 1;
   int right = GetSize();
@@ -98,32 +165,29 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Search(const KeyType &key, const KeyCompara
     }
   }
   
+  return 0;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SearchPosition(page_id_t page_id) const -> int {
+  int left = 0;
+  int right = GetSize();
+
+  while (left <= right) {
+    int mid = (left + right) / 2;
+    if (array_[mid].second == page_id) {
+      return mid;
+    }
+    if (array_[mid].second < page_id) {
+      left = mid + 1;
+    } 
+    else {
+      right = mid - 1;
+    }
+  }
+  
   return -1;
 }
-// we don't need it
-// INDEX_TEMPLATE_ARGUMENTS
-// auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Sort(const KeyComparator &comparator) -> bool {
-  // // TODO(gigalo): Inseration Sort
-  // int i = 2;
-  // int j = 2;
-  // int compare = 0;
-  // for (; i <= GetSize(); ++i) {
-    // while(j > 1 && (compare = comparator(KeyAt(j), KeyAt(j - 1))) == -1) {
-      // if (compare == 0) {
-
-      // }
-
-      // auto temp = array_[j];
-      // array_[j] = array_[j - 1];
-      // array_[j - 1] = temp;
-      // j--;
-    // }
-    // j = i;
-  // }
-
-  // // check deplicate
-  // return compare != 0;
-// }
 
 // valuetype for internalNode should be page id_t
 template class BPlusTreeInternalPage<GenericKey<4>, page_id_t, GenericComparator<4>>;
