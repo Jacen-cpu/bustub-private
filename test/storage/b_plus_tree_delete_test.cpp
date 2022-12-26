@@ -47,48 +47,48 @@ TEST(BPlusTreeTests, DeleteTest1) {
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
   }
-  
-  auto key = static_cast<int64_t>(7);
-  index_key.SetFromInteger(key);
-  tree.Remove(index_key);
-  tree.Draw(bpm, "Graph.dot");
 
-  // std::vector<RID> rids;
-  // for (auto key : keys) {
-    // rids.clear();
-    // index_key.SetFromInteger(key);
-    // tree.GetValue(index_key, &rids);
-    // EXPECT_EQ(rids.size(), 1);
+  // auto key = static_cast<int64_t>(7);
+  // index_key.SetFromInteger(key);
+  // tree.Remove(index_key);
+  // tree.Draw(bpm, "Graph.dot");
 
-    // int64_t value = key & 0xFFFFFFFF;
-    // EXPECT_EQ(rids[0].GetSlotNum(), value);
-  // }
+  std::vector<RID> rids;
+  for (auto key : keys) {
+    rids.clear();
+    index_key.SetFromInteger(key);
+    tree.GetValue(index_key, &rids);
+    EXPECT_EQ(rids.size(), 1);
 
-  // std::vector<int64_t> remove_keys = {1, 5};
-  // for (auto key : remove_keys) {
-    // index_key.SetFromInteger(key);
-    // tree.Remove(index_key, transaction);
-  // }
+    int64_t value = key & 0xFFFFFFFF;
+    EXPECT_EQ(rids[0].GetSlotNum(), value);
+  }
 
-  // int64_t size = 0;
-  // bool is_present;
+  std::vector<int64_t> remove_keys = {1, 5};
+  for (auto key : remove_keys) {
+    index_key.SetFromInteger(key);
+    tree.Remove(index_key, transaction);
+  }
 
-  // for (auto key : keys) {
-    // rids.clear();
-    // index_key.SetFromInteger(key);
-    // is_present = tree.GetValue(index_key, &rids);
+  int64_t size = 0;
+  bool is_present;
 
-    // if (!is_present) {
-      // EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
-    // } else {
-      // EXPECT_EQ(rids.size(), 1);
-      // EXPECT_EQ(rids[0].GetPageId(), 0);
-      // EXPECT_EQ(rids[0].GetSlotNum(), key);
-      // size = size + 1;
-    // }
-  // }
+  for (auto key : keys) {
+    rids.clear();
+    index_key.SetFromInteger(key);
+    is_present = tree.GetValue(index_key, &rids);
 
-  // EXPECT_EQ(size, 3);
+    if (!is_present) {
+      EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
+    } else {
+      EXPECT_EQ(rids.size(), 1);
+      EXPECT_EQ(rids[0].GetPageId(), 0);
+      EXPECT_EQ(rids[0].GetSlotNum(), key);
+      size = size + 1;
+    }
+  }
+
+  EXPECT_EQ(size, 3);
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete transaction;

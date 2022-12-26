@@ -6,6 +6,7 @@
 #include "common/exception.h"
 #include "common/logger.h"
 #include "common/rid.h"
+#include "fmt/core.h"
 #include "storage/index/b_plus_tree.h"
 #include "storage/page/b_plus_tree_internal_page.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
@@ -494,29 +495,36 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage * rest_node) {
                       target_index,
                       is_last)) { return; }
     /* = Merge = */
-    auto next_parent_key = parent_internal->KeyAt(target_index + 1);
-    auto left_most_key = GetLeftMostKey(deleting_internal);
+    auto deleting_arr = deleting_internal->GetArray();
+    auto neber_arr = neber_internal->GetArray();
+
     if (is_last) {
-
-    } else {
-      // update the next internal page's key
-      neber_internal->SetKeyAt(0, next_parent_key);
+      // update the neber internal page's key
+      deleting_internal->SetKeyAt(0, parent_internal->KeyAt(target_index));
       /* Merge two internal page */
-      auto left_arr = deleting_internal->GetArray();
-      auto right_arr = neber_internal->GetArray();
-
-      std::copy(right_arr, right_arr + neber_internal->GetSize() + 1, right_arr + deleting_internal->GetSize() + 1);
+      // std::copy(right_arr, right_arr + neber_internal->GetSize() + 1, right_arr + deleting_internal->GetSize() + 1);
+      int neber_size = neber_internal->GetSize();
       for (int i = 0; i < deleting_internal->GetSize() + 1; ++i) {
-        auto mapp_elem = left_arr[i];
+        auto mapp_elem = deleting_arr[i];
         UpdateParentId(mapp_elem.second, neber_internal->GetPageId());
-        right_arr[i] = mapp_elem;
+        neber_arr[i + neber_size + 1] = mapp_elem;
       }
-      neber_internal->IncreaseSize(deleting_internal->GetSize());
-    
+      neber_internal->IncreaseSize(deleting_internal->GetSize() + 1);
       parent_internal->Remove(target_index);
-      parent_internal->SetKeyAt(target_index, left_most_key);
+    } else {
+      // update the neber internal page's key
+      neber_internal->SetKeyAt(0, parent_internal->KeyAt(target_index + 1));
+      /* Merge two internal page */
+      std::copy(deleting_arr, neber_arr + neber_internal->GetSize() + 1, neber_arr + deleting_internal->GetSize() + 1);
+      for (int i = 0; i < deleting_internal->GetSize() + 1; ++i) {
+        auto mapp_elem = deleting_arr[i];
+        UpdateParentId(mapp_elem.second, neber_internal->GetPageId());
+        neber_arr[i] = mapp_elem;
+      }
+      neber_internal->IncreaseSize(deleting_internal->GetSize() + 1);
+      parent_internal->Remove(target_index);
+      parent_internal->SetKeyAt(target_index, GetLeftMostKey(deleting_internal));
     }
-    
     // Recursion
     if (parent_internal->NeedRedsb()) {
       if (parent_internal->IsRootPage()) {
