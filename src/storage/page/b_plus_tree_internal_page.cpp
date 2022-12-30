@@ -125,16 +125,16 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::NeedRedsb() -> bool {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealFirst(MappingType * value) -> bool {
-  if (GetSize() - 1 < GetSize() < (GetMaxSize() + 1) / 2 - 1) { return false; }
+  if (GetSize() <= (GetMaxSize() + 1) / 2 - 1) { return false; }
+  *value = array_[0];
   std::copy(array_ + 1, array_ + GetSize() + 1, array_);
   IncreaseSize(-1);
-  *value = array_[0];
   return true;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealLast(MappingType * value) -> bool {
-  if (GetSize() - 1 < GetSize() < (GetMaxSize() + 1) / 2 - 1) { return false; }
+  if (GetSize() <= (GetMaxSize() + 1) / 2 - 1) { return false; }
   *value = array_[GetSize()];
   IncreaseSize(-1);
   return true;

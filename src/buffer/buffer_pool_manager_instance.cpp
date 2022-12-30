@@ -105,7 +105,7 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
 
     target = pages_ + target_frame;
     ReadPageToPool(page_id, target_frame);
-    target->pin_count_ += 1;
+    target->pin_count_++;
     replacer_->RecordAccess(target_frame);
     replacer_->SetEvictable(target_frame, false);
 
