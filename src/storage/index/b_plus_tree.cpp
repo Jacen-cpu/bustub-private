@@ -23,7 +23,9 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
       buffer_pool_manager_(buffer_pool_manager),
       comparator_(comparator),
       leaf_max_size_(leaf_max_size),
-      internal_max_size_(internal_max_size) {}
+      internal_max_size_(internal_max_size) {
+        LOG_DEBUG("leaf max size %d, internal max size %d", leaf_max_size, internal_max_size);
+      }
 
 /**
  * @brief
