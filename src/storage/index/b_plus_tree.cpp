@@ -109,6 +109,8 @@ auto BPLUSTREE_TYPE::GetPage(page_id_t page_id) -> BPlusTreePage * {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
+  LOG_DEBUG("get the value of %ld ", key.ToString());
+
   if (IsEmpty()) {
     return false;
   }
@@ -138,6 +140,8 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
+  LOG_DEBUG("Insert %ld ", key.ToString());
+
   if (IsEmpty()) {
     page_id_t new_root_page_id;
     auto new_root = reinterpret_cast<LeafPage *>(buffer_pool_manager_->NewPage(&new_root_page_id));
@@ -338,6 +342,8 @@ void BPLUSTREE_TYPE::UpdateParentId(page_id_t page_id, page_id_t p_page_id) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
+  LOG_DEBUG("Remove %ld ", key.ToString());
+
   if (IsEmpty()) {
     return;
   }
@@ -370,7 +376,6 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   }
 
   /* = Merge = */
-  assert(CheckPin(deleting_leaf->GetPageId()));
   Merge(deleting_leaf);
 }
 
@@ -459,7 +464,6 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
      */
     auto rest_leaf = reinterpret_cast<LeafPage *>(rest_node);
     auto parent_page = GetInternalPage(rest_leaf->GetParentPageId());
-    assert(CheckPin(parent_page->GetPageId()));
 
     int target_index = parent_page->SearchPosition(rest_leaf->GetPageId());
     LeafPage *merging_leaf = nullptr;
@@ -493,7 +497,6 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
     DeletePage(rest_leaf->GetPageId());
 
     // check parent
-    assert(CheckPin(parent_page->GetPageId()));
 
     if (parent_page->NeedRedsb()) {
       if (parent_page->IsRootPage()) {
@@ -520,13 +523,10 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
      */
     // Here are some neccessy variable
     auto deleting_internal = reinterpret_cast<InternalPage *>(rest_node);
-    // assert();
     auto parent_internal = GetInternalPage(deleting_internal->GetParentPageId());
     int target_index = parent_internal->SearchPosition(deleting_internal->GetPageId());
     int neber_index = target_index == parent_internal->GetSize() ? target_index - 1 : target_index + 1;
     auto neber_internal = GetInternalPage(parent_internal->ValueAt(neber_index));
-
-    assert(CheckPin(neber_internal->GetPageId()));
 
     bool is_last = neber_index < target_index;
 
@@ -574,8 +574,6 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
       parent_internal->Remove(target_index);
       parent_internal->SetKeyAt(target_index, GetLeftMostKey(deleting_internal));
     }
-
-    assert(CheckPin(neber_internal->GetPageId()));
 
     UnpinPage(neber_internal->GetPageId(), true);
     UnpinPage(deleting_internal->GetPageId(), false);
