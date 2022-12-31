@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/buffer_pool_manager_instance.h"
+#include <cstring>
 
 #include "common/config.h"
 #include "common/exception.h"
@@ -53,8 +54,13 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
     free_list_.pop_back();
 
     target = pages_ + target_frame;
-    ReadPageToPool(new_page_id, target_frame);
-    target->pin_count_++;
+
+    target->page_id_ = new_page_id;
+    target->is_dirty_ = false;
+    target->pin_count_ = 1;
+    memset(target->data_, 0, BUSTUB_PAGE_SIZE);
+    page_table_->Insert(new_page_id, target_frame);
+
     replacer_->RecordAccess(target_frame);
     replacer_->SetEvictable(target_frame, false);
 
@@ -71,10 +77,13 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
     }
 
     page_table_->Remove(target->page_id_);
-
     // replace the page
-    ReadPageToPool(new_page_id, target_frame);
-    target->pin_count_++;
+    target->page_id_ = new_page_id;
+    target->is_dirty_ = false;
+    target->pin_count_ = 1;
+    memset(target->data_, 0, BUSTUB_PAGE_SIZE);
+    page_table_->Insert(new_page_id, target_frame);
+
     replacer_->RecordAccess(target_frame);
     replacer_->SetEvictable(target_frame, false);
   }

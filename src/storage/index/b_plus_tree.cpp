@@ -148,6 +148,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   if (IsEmpty()) {
     page_id_t new_root_page_id;
     auto new_root = reinterpret_cast<LeafPage *>(buffer_pool_manager_->NewPage(&new_root_page_id));
+    LOG_DEBUG("new page id %d", new_root_page_id);
     root_page_id_ = new_root_page_id;
     UpdateRootPageId(0);
     new_root->Init(new_root_page_id, INVALID_PAGE_ID, leaf_max_size_);
@@ -192,6 +193,7 @@ void BPLUSTREE_TYPE::SplitLeaf(LeafPage *over_node) {
 
   // create new leaf node page
   auto new_leaf = reinterpret_cast<LeafPage *>(buffer_pool_manager_->NewPage(&new_leaf_id));
+  LOG_DEBUG("new page id %d", new_leaf_id);
 
   if (!over_node->IsRootPage()) {
     new_leaf->Init(new_leaf_id, over_node->GetParentPageId(), leaf_max_size_);
@@ -199,6 +201,7 @@ void BPLUSTREE_TYPE::SplitLeaf(LeafPage *over_node) {
     // create new root node page
     page_id_t new_root_page_id;
     auto new_root = reinterpret_cast<InternalPage *>(buffer_pool_manager_->NewPage(&new_root_page_id));
+    LOG_DEBUG("new page id %d", new_root_page_id);
     root_page_id_ = new_root_page_id;
     UpdateRootPageId(0);
     new_root->Init(new_root_page_id, INVALID_PAGE_ID, internal_max_size_);
@@ -241,6 +244,7 @@ void BPLUSTREE_TYPE::SplitLeaf(LeafPage *over_node) {
   if (parent_node->NeedSplit()) {
     page_id_t new_page_id;
     auto new_node = reinterpret_cast<InternalPage *>(buffer_pool_manager_->NewPage(&new_page_id));
+    LOG_DEBUG("new page id %d", new_page_id);
     new_node->Init(new_page_id, INVALID_PAGE_ID, internal_max_size_);
     SplitInternal(parent_node, new_node);
   }
@@ -271,6 +275,7 @@ void BPLUSTREE_TYPE::SplitInternal(InternalPage *over_node, InternalPage *new_in
     // create new root node page
     page_id_t new_root_page_id;
     auto new_root = reinterpret_cast<InternalPage *>(buffer_pool_manager_->NewPage(&new_root_page_id));
+    LOG_DEBUG("new page id %d", new_root_page_id);
     root_page_id_ = new_root_page_id;
     UpdateRootPageId(0);
     new_root->Init(new_root_page_id, INVALID_PAGE_ID, internal_max_size_);
@@ -313,6 +318,7 @@ void BPLUSTREE_TYPE::SplitInternal(InternalPage *over_node, InternalPage *new_in
   if (parent_node->NeedSplit()) {
     page_id_t new_page_id;
     auto new_node = reinterpret_cast<InternalPage *>(buffer_pool_manager_->NewPage(&new_page_id));
+    LOG_DEBUG("new page id %d", new_page_id);
     new_node->Init(new_page_id, INVALID_PAGE_ID, internal_max_size_);
     SplitInternal(parent_node, new_node);
   }

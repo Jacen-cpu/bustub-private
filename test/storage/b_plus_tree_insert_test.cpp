@@ -208,7 +208,7 @@ TEST(BPlusTreeTests, InsertTest4) {
   GenericComparator<8> comparator(key_schema.get());
 
   auto *disk_manager = new DiskManager("test.db");
-  BufferPoolManager *bpm = new BufferPoolManagerInstance(100, disk_manager);
+  BufferPoolManager *bpm = new BufferPoolManagerInstance(5, disk_manager);
   // create b+ tree
   BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 3);
   GenericKey<8> index_key;
@@ -221,7 +221,7 @@ TEST(BPlusTreeTests, InsertTest4) {
   auto header_page = bpm->NewPage(&page_id);
   (void)header_page;
 
-  for (int64_t key = 1; key < 40; ++key) {
+  for (int64_t key = 1; key <= 5; ++key) {
     int64_t value = key & 0xFFFFFFFF;  // this is the offset, the size of one page is 8 byte * 2 ^ 32
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
