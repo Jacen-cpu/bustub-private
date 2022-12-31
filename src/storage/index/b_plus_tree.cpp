@@ -170,7 +170,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     return true;
   }
 
-  UnpinPage(leaf_node_page->GetPageId(), false);
+  UnpinPage(leaf_node_page->GetPageId(), true);
   return true;
 }
 
