@@ -65,7 +65,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DISABLED_InsertTest2) {
+TEST(BPlusTreeTests, InsertTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -73,7 +73,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 3);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
@@ -84,13 +84,15 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   auto header_page = bpm->NewPage(&page_id);
   (void)header_page;
 
-  std::vector<int64_t> keys = {1, 2, 3, 4, 5};
+  std::vector<int64_t> keys = {12, 3, 43, 4, 1, 33, 2, 5, 4, 2};
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;  // this is the offset, the size of one page is 8 byte * 2 ^ 32
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
   }
+
+  tree.Draw(bpm, "big.dot");
 
   std::vector<RID> rids;
   for (auto key : keys) {
@@ -202,7 +204,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest3) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, InsertTest4) {
+TEST(BPlusTreeTests, DISABLED_InsertTest4) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());

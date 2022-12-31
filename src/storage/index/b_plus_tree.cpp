@@ -24,9 +24,9 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
       comparator_(comparator),
       leaf_max_size_(leaf_max_size),
       internal_max_size_(internal_max_size) {
-        LOG_DEBUG("Pool size is %zu", buffer_pool_manager->GetPoolSize());
-        LOG_DEBUG("leaf max size %d, internal max size %d", leaf_max_size, internal_max_size);
-      }
+  LOG_DEBUG("Pool size is %zu", buffer_pool_manager->GetPoolSize());
+  LOG_DEBUG("leaf max size %d, internal max size %d", leaf_max_size, internal_max_size);
+}
 
 /**
  * @brief
@@ -221,11 +221,13 @@ void BPLUSTREE_TYPE::SplitLeaf(LeafPage *over_node) {
 
   /* == Address the leaf level == */
   // Insert the new leaf in the list
-  new_leaf->SetNextPageId(over_node->GetNextPageId());
+  page_id_t next_page_id = over_node->GetNextPageId();
+  new_leaf->SetNextPageId(next_page_id);
   new_leaf->SetPrevPageId(over_node_id);
   if (!over_node->IsLast()) {
-    auto leaf = GetLeafPage(over_node->GetNextPageId());
-    leaf->SetPrevPageId(new_leaf->GetPageId());
+    auto leaf = GetLeafPage(next_page_id);
+    leaf->SetPrevPageId(new_leaf_id);
+    UnpinPage(next_page_id, true);
   }
   over_node->SetNextPageId(new_leaf_id);
 
