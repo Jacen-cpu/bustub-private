@@ -510,12 +510,17 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
     // check parent
 
     if (parent_page->NeedRedsb()) {
-      if (parent_page->IsRootPage()) {
-        merging_leaf->SetParentPageId(INVALID_PAGE_ID);
-        UnpinPage(root_page_id_, false);
-        DeletePage(root_page_id_);
-        root_page_id_ = merging_leaf->GetPageId();
-        UpdateRootPageId(0);
+      if (parent_page->IsRootPage() && parent_page->GetSize() <= 0) {
+        if (parent_page->GetSize() <= 0) { 
+          merging_leaf->SetParentPageId(INVALID_PAGE_ID);
+          UnpinPage(root_page_id_, false);
+          DeletePage(root_page_id_);
+          root_page_id_ = merging_leaf->GetPageId();
+          UpdateRootPageId(0);
+        } else {
+          UnpinPage(root_page_id_, false);
+          return;
+        }
       } else {
         Merge(parent_page);
       }
@@ -592,12 +597,17 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
 
     // Recursion
     if (parent_internal->NeedRedsb()) {
-      if (parent_internal->IsRootPage()) {
-        neber_internal->SetParentPageId(INVALID_PAGE_ID);
-        UnpinPage(root_page_id_, false);
-        DeletePage(root_page_id_);
-        root_page_id_ = neber_internal->GetPageId();
-        UpdateRootPageId(0);
+      if (parent_internal->IsRootPage() ) {
+        if (parent_internal->GetSize() <= 0) { 
+          neber_internal->SetParentPageId(INVALID_PAGE_ID);
+          UnpinPage(root_page_id_, false);
+          DeletePage(root_page_id_);
+          root_page_id_ = neber_internal->GetPageId();
+          UpdateRootPageId(0);
+        } else {
+          UnpinPage(root_page_id_, false);
+          return;
+        }
       } else {
         Merge(parent_internal);
       }
