@@ -38,26 +38,21 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id
  * array offset)
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  return array_[index].first;
-}
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType { return array_[index].first; }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
-  array_[index].first = key;
-}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) { array_[index].first = key; }
 
 /*
  * Helper method to get the value associated with input "index"(a.k.a array
  * offset)
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType { 
-  return array_[index].second;
-}
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType { return array_[index].second; }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> bool {
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator)
+    -> bool {
   // check deplicate
   if (Search(key, comparator) != 0) {
     return false;
@@ -70,7 +65,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType 
 
   int compare = 0;
   int j = cur_size;
-  while(j > 1 && (compare = comparator(KeyAt(j), KeyAt(j - 1))) == -1) {
+  while (j > 1 && (compare = comparator(KeyAt(j), KeyAt(j - 1))) == -1) {
     auto temp = array_[j];
     array_[j] = array_[j - 1];
     array_[j - 1] = temp;
@@ -106,26 +101,28 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::NeedRedsb() -> bool {
 
 // INDEX_TEMPLATE_ARGUMENTS
 // void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MergeFromLeft(InternalPage * rest_page) {
-  // auto size = rest_page->GetSize();
-  // auto rest_array = rest_page->GetArray(); 
+// auto size = rest_page->GetSize();
+// auto rest_array = rest_page->GetArray();
 
-  // std::copy(array_, array_ + GetSize() + 1, array_ + size + 1); 
-  // std::copy(rest_array, rest_array + size, array_);
-  // IncreaseSize(size);
+// std::copy(array_, array_ + GetSize() + 1, array_ + size + 1);
+// std::copy(rest_array, rest_array + size, array_);
+// IncreaseSize(size);
 // }
 
 // INDEX_TEMPLATE_ARGUMENTS
 // void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MergeFromRight(InternalPage * rest_page) {
-  // auto size = rest_page->GetSize();
-  // auto rest_array = rest_page->GetArray(); 
+// auto size = rest_page->GetSize();
+// auto rest_array = rest_page->GetArray();
 
-  // std::copy(rest_array, rest_array + size, array_ + GetSize());
-  // IncreaseSize(size);
+// std::copy(rest_array, rest_array + size, array_ + GetSize());
+// IncreaseSize(size);
 // }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealFirst(MappingType * value) -> bool {
-  if (GetSize() <= (GetMaxSize() + 1) / 2 - 1) { return false; }
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealFirst(MappingType *value) -> bool {
+  if (GetSize() <= (GetMaxSize() + 1) / 2 - 1) {
+    return false;
+  }
   *value = array_[0];
   std::copy(array_ + 1, array_ + GetSize() + 1, array_);
   IncreaseSize(-1);
@@ -133,19 +130,21 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealFirst(MappingType * value) -> bool {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealLast(MappingType * value) -> bool {
-  if (GetSize() <= (GetMaxSize() + 1) / 2 - 1) { return false; }
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealLast(MappingType *value) -> bool {
+  if (GetSize() <= (GetMaxSize() + 1) / 2 - 1) {
+    return false;
+  }
   *value = array_[GetSize()];
   IncreaseSize(-1);
   return true;
 }
 
 /**
- * @brief 
- * 
- * @param key 
- * @param comparator 
- * @return int 
+ * @brief
+ *
+ * @param key
+ * @param comparator
+ * @return int
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Search(const KeyType &key, const KeyComparator &comparator) const -> int {
@@ -159,12 +158,11 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Search(const KeyType &key, const KeyCompara
     }
     if (comparator(key, KeyAt(mid)) == 1) {
       left = mid + 1;
-    } 
-    else {
+    } else {
       right = mid - 1;
     }
   }
-  
+
   return 0;
 }
 
@@ -180,12 +178,11 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SearchPosition(page_id_t page_id) const -> 
     }
     if (array_[mid].second < page_id) {
       left = mid + 1;
-    } 
-    else {
+    } else {
       right = mid - 1;
     }
   }
-  
+
   return -1;
 }
 

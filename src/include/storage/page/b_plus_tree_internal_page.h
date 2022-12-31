@@ -50,10 +50,10 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   void InsertFirst(const MappingType *value);
   void InsertLast(const MappingType *value);
   void Remove(int index);
-  void MergeFromLeft(InternalPage * rest_page);
-  void MergeFromRight(InternalPage * rest_page);
-  auto StealLast(MappingType * value) -> bool;
-  auto StealFirst(MappingType * value) -> bool;
+  void MergeFromLeft(InternalPage *rest_page);
+  void MergeFromRight(InternalPage *rest_page);
+  auto StealLast(MappingType *value) -> bool;
+  auto StealFirst(MappingType *value) -> bool;
   inline auto GetArray() -> MappingType * { return array_; }
   inline void SetFirstPoint(const ValueType &value) { array_[0].second = value; }
   auto NeedRedsb() -> bool;

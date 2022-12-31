@@ -24,10 +24,11 @@ namespace bustub {
 INDEX_TEMPLATE_ARGUMENTS
 class IndexIterator {
   using LeafPage = BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>;
+
  public:
   // you may define your own constructor based on your member variables
   IndexIterator();
-  IndexIterator(LeafPage * leaf, BufferPoolManager * bpm, int cur_pos = 0);
+  IndexIterator(LeafPage *leaf, BufferPoolManager *bpm, int cur_pos = 0);
 
   ~IndexIterator();  // NOLINT
 
@@ -42,10 +43,10 @@ class IndexIterator {
   auto operator!=(const IndexIterator &itr) const -> bool { return itr.leaf_ != leaf_ || itr.cur_pos_ != cur_pos_; }
 
  private:
-  LeafPage * leaf_;
+  LeafPage *leaf_;
   int cur_leaf_size_;
   int cur_pos_;
-  BufferPoolManager * buffer_pool_manager_;
+  BufferPoolManager *buffer_pool_manager_;
 };
 
 }  // namespace bustub

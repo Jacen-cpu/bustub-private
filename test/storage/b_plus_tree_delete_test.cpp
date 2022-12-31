@@ -71,7 +71,6 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
     tree.Draw(bpm, "delete" + std::to_string(key) + ".dot");
   }
 
-
   int64_t size = 0;
   bool is_present;
 

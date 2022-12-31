@@ -83,45 +83,44 @@ class BPlusTree {
   void ToGraph(BPlusTreePage *page, BufferPoolManager *bpm, std::ofstream &out) const;
 
   void ToString(BPlusTreePage *page, BufferPoolManager *bpm) const;
-  
-  auto FindLeafPage(const KeyType &key) -> LeafPage *;
-  
-  void SplitLeaf(LeafPage * over_node);
 
-  void SplitInternal(InternalPage * over_node, InternalPage * new_internal);
-    
-  void Merge(BPlusTreePage *merge_node);
-    
+  auto FindLeafPage(const KeyType &key) -> LeafPage *;
+
+  void SplitLeaf(LeafPage *over_node);
+
+  void SplitInternal(InternalPage *over_node, InternalPage *new_internal);
+
+  void Merge(BPlusTreePage *rest_node);
+
   void UpdateParentId(page_id_t page_id, page_id_t p_page_id);
 
-  auto StealSibling(LeafPage * deleted_leaf) -> bool;
+  auto StealSibling(LeafPage *deleting_leaf) -> bool;
 
-  auto StealInternal(
-    InternalPage * deleting_internal,
-    InternalPage * parent_internal,
-    InternalPage * neber_internal, 
-    int target_index,
-    bool is_last) -> bool;
+  auto StealInternal(InternalPage *deleting_internal, InternalPage *parent_internal, InternalPage *neber_internal,
+                     int target_index, bool is_last) -> bool;
 
   void UpdateParentKey(const KeyType &new_key, page_id_t page_id);
-  // void UpdateRootParentKey(const KeyType &old_key, const KeyType &new_key, page_id_t  left_parent_id, page_id_t right_parent_id);
-  
+  // void UpdateRootParentKey(const KeyType &old_key, const KeyType &new_key, page_id_t  left_parent_id, page_id_t
+  // right_parent_id);
+
   /* some basic operations */
   auto GetLeafPage(page_id_t leaf_id) -> LeafPage *;
   auto GetInternalPage(page_id_t internal_id) -> InternalPage *;
   auto GetPage(page_id_t page_id) -> BPlusTreePage *;
-  auto GetLeftMostKey(InternalPage * internal_page) -> KeyType;
+  auto GetLeftMostKey(InternalPage *internal_page) -> KeyType;
   auto GetFirstLeaf() -> LeafPage *;
   auto GetLastLeaf() -> LeafPage *;
   auto CreateLeafPage() -> LeafPage *;
   auto CreateInternalPage() -> InternalPage *;
 
-  inline void UnpinPage(page_id_t page_id, bool is_dirty) { assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true); }
+  inline void UnpinPage(page_id_t page_id, bool is_dirty) {
+    assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true);
+  }
   inline void DeletePage(page_id_t page_id) { assert(buffer_pool_manager_->DeletePage(page_id) == true); }
 
   /* Debug function */
   auto CheckPin(page_id_t page_id) -> bool {
-    int count = buffer_pool_manager_->FetchPage(page_id)->GetPinCount() - 1; 
+    int count = buffer_pool_manager_->FetchPage(page_id)->GetPinCount() - 1;
     LOG_INFO("page %d pin count is %d", page_id, count);
     UnpinPage(page_id, false);
     return count == 1;
@@ -130,7 +129,7 @@ class BPlusTree {
   // member variable
   std::string index_name_;
   page_id_t root_page_id_;
-  BufferPoolManager * buffer_pool_manager_;
+  BufferPoolManager *buffer_pool_manager_;
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;

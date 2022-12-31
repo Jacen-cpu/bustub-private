@@ -61,7 +61,7 @@ class BPlusTreePage {
   void SetPageId(page_id_t page_id);
 
   void SetLSN(lsn_t lsn = INVALID_LSN);
-  inline auto NeedSplit() -> bool { return size_ == max_size_; }; 
+  inline auto NeedSplit() -> bool { return size_ == max_size_; };
 
  private:
   // member variable, attributes that both internal and leaf page share
