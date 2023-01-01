@@ -86,11 +86,11 @@ class BPlusTree {
 
   void ToString(BPlusTreePage *page, BufferPoolManager *bpm) const;
 
-  auto FindLeafPage(const KeyType &key) -> LeafPage *;
+  auto FindLeafPage(const KeyType &key, RWType rw) -> LeafPage *;
 
   void SplitLeaf(LeafPage *over_node);
 
-  void SplitInternal(InternalPage *over_node, InternalPage *new_internal);
+  void SplitInternal(InternalPage *over_node);
 
   void Merge(BPlusTreePage *rest_node);
 
@@ -109,12 +109,15 @@ class BPlusTree {
   auto GetLeafPage(page_id_t leaf_id, RWType rw) -> LeafPage *;
   auto GetInternalPage(page_id_t internal_id, RWType rw) -> InternalPage *;
   auto GetPage(page_id_t page_id, RWType rw) -> BPlusTreePage *;
-  auto GetRootPage(page_id_t root_id) -> BPlusTreePage *;
+
+  auto GetRootPage(page_id_t root_id, RWType rw) -> BPlusTreePage *;
   auto GetLeftMostKey(InternalPage *internal_page) -> KeyType;
   auto GetFirstLeaf() -> LeafPage *;
   auto GetLastLeaf() -> LeafPage *;
-  auto CreateLeafPage() -> LeafPage *;
-  auto CreateInternalPage() -> InternalPage *;
+
+  auto CreateLeafPage(page_id_t * new_page_id, page_id_t parent_page_id, RWType rw) -> LeafPage *;
+  auto CreateInternalPage(page_id_t * new_page_id, page_id_t parent_page_id, RWType rw) -> InternalPage *;
+  auto CreatePage(page_id_t * new_page_id, RWType rw) -> BPlusTreePage *;
 
   void UnpinPage(Page * page, page_id_t page_id, bool is_dirty, RWType rw);
   void DeletePage(Page * page, page_id_t page_id, bool is_dirty, RWType rw);
