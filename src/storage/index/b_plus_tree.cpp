@@ -6,6 +6,7 @@
 #include "common/exception.h"
 #include "common/logger.h"
 #include "common/rid.h"
+#include "concurrency/transaction.h"
 #include "fmt/core.h"
 #include "storage/index/b_plus_tree.h"
 #include "storage/index/index_iterator.h"
@@ -45,11 +46,10 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_P
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key) -> LeafPage * {
-  auto curr_node_page = GetPage(root_page_id_);
+  auto curr_node_page = GetRootPage(root_page_id_);
 
   while (!curr_node_page->IsLeafPage()) {
     // guide by the internal page (key) [...).
-    // do some comparations
     auto internal_node_page = reinterpret_cast<InternalPage *>(curr_node_page);
     page_id_t next_page_id = [&]() -> page_id_t {
       for (int i = 1; i <= internal_node_page->GetSize(); ++i) {
@@ -59,10 +59,9 @@ auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key) -> LeafPage * {
         }
       }
       return internal_node_page->ValueAt(internal_node_page->GetSize());
-    }();  // find the next page id (down), (maybe lambda is good)
-
-    UnpinPage(curr_node_page->GetPageId(), false);
-    curr_node_page = GetPage(next_page_id);
+    }();
+    UnpinPage(curr_node_page->GetBelongPage(), curr_node_page->GetPageId(), false, RWType::READ);
+    curr_node_page = GetPage(next_page_id, RWType::READ);
   }
 
   return reinterpret_cast<LeafPage *>(curr_node_page);
@@ -76,8 +75,8 @@ auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key) -> LeafPage * {
  * @return InternalPage*
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::GetInternalPage(page_id_t internal_id) -> InternalPage * {
-  return reinterpret_cast<InternalPage *>(buffer_pool_manager_->FetchPage(internal_id)->GetData());
+auto BPLUSTREE_TYPE::GetInternalPage(page_id_t internal_id, RWType rw) -> InternalPage * {
+  return reinterpret_cast<InternalPage *>(GetPage(internal_id, rw));
 }
 
 /**
@@ -87,8 +86,8 @@ auto BPLUSTREE_TYPE::GetInternalPage(page_id_t internal_id) -> InternalPage * {
  * @return LeafPage*
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::GetLeafPage(page_id_t leaf_id) -> LeafPage * {
-  return reinterpret_cast<LeafPage *>(buffer_pool_manager_->FetchPage(leaf_id)->GetData());
+auto BPLUSTREE_TYPE::GetLeafPage(page_id_t leaf_id, RWType rw) -> LeafPage * {
+  return reinterpret_cast<LeafPage *>(GetPage(leaf_id, rw));
 }
 
 /**
@@ -98,8 +97,42 @@ auto BPLUSTREE_TYPE::GetLeafPage(page_id_t leaf_id) -> LeafPage * {
  * @return BPlusTreePage*
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::GetPage(page_id_t page_id) -> BPlusTreePage * {
-  return reinterpret_cast<BPlusTreePage *>(buffer_pool_manager_->FetchPage(page_id)->GetData());
+auto BPLUSTREE_TYPE::GetPage(page_id_t page_id, RWType rw) -> BPlusTreePage * {
+  Page * page = buffer_pool_manager_->FetchPage(page_id);
+  rw == RWType::READ ? page->RLatch() : page->WLatch();
+  auto b_tree_page = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  b_tree_page->SetBelongPage(page);
+  return b_tree_page;
+}
+
+/**
+ * @brief Get the true root page. Becasue of the root_page_id_ can be changed, we should protect it.
+ * 
+ * @param root_id 
+ * @return BPlusTreePage* 
+ */
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::GetRootPage(page_id_t root_id) -> BPlusTreePage * {
+  std::lock_guard<std::mutex> lock(root_latch_);
+  BPlusTreePage * root_page = nullptr;
+  // check root
+  do { 
+    root_page = GetPage(root_page_id_, RWType::READ); 
+  } while (root_page->IsRootPage());
+  return root_page;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::UnpinPage(Page * page, page_id_t page_id, bool is_dirty, RWType rw) {
+  rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
+  assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::DeletePage(Page * page, page_id_t page_id, bool is_dirty, RWType rw) { 
+  rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
+  assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true);
+  assert(buffer_pool_manager_->DeletePage(page_id) == true);
 }
 
 /*****************************************************************************
@@ -114,21 +147,14 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
   LOG_DEBUG("get the value of %ld ", key.ToString());
 
-  if (IsEmpty()) {
-    return false;
-  }
-  // fetch the page
+  if (IsEmpty()) { return false; }
   auto leaf_node_page = FindLeafPage(key);
-  for (int i = 0; i < leaf_node_page->GetSize(); ++i) {
-    KeyType cur_key = leaf_node_page->KeyAt(i);
-    if (comparator_(cur_key, key) == 0) {
-      result->push_back(leaf_node_page->ValueAt(i));
-      UnpinPage(leaf_node_page->GetPageId(), false);
-      return true;
-    }
+  int index = leaf_node_page->Search(key, comparator_);
+  if (index != -1) {
+    result->push_back(leaf_node_page->ValueAt(index));
   }
   UnpinPage(leaf_node_page->GetPageId(), false);
-  return false;
+  return index != -1;
 }
 
 /*****************************************************************************
@@ -503,9 +529,8 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
       UpdateParentKey(merging_leaf->KeyAt(0), merging_leaf->GetPageId());
     }
 
-    UnpinPage(merging_leaf->GetPageId(), true);
-    UnpinPage(rest_leaf->GetPageId(), false);
-    DeletePage(rest_leaf->GetPageId());
+    UnpinPage(merging_leaf->GetBelongPage(), merging_leaf->GetPageId(), true, RWType::WRITE);
+    DeletePage(rest_leaf->GetBelongPage(), rest_leaf->GetPageId(), false, RWType::WRITE);
 
     // check parent
 
@@ -513,8 +538,7 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
       if (parent_page->IsRootPage() && parent_page->GetSize() <= 0) {
         if (parent_page->GetSize() <= 0) {
           merging_leaf->SetParentPageId(INVALID_PAGE_ID);
-          UnpinPage(root_page_id_, false);
-          DeletePage(root_page_id_);
+          DeletePage(parent_page->GetBelongPage(), root_page_id_, false, RWType::WRITE);
           root_page_id_ = merging_leaf->GetPageId();
           UpdateRootPageId(0);
         } else {
@@ -592,16 +616,14 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node) {
     }
 
     UnpinPage(neber_internal->GetPageId(), true);
-    UnpinPage(deleting_internal->GetPageId(), false);
-    DeletePage(deleting_internal->GetPageId());
+    DeletePage(deleting_internal->GetBelongPage(), deleting_internal->GetPageId(), false, RWType::WRITE);
 
     // Recursion
     if (parent_internal->NeedRedsb()) {
       if (parent_internal->IsRootPage()) {
         if (parent_internal->GetSize() <= 0) {
           neber_internal->SetParentPageId(INVALID_PAGE_ID);
-          UnpinPage(root_page_id_, false);
-          DeletePage(root_page_id_);
+          DeletePage(parent_internal->GetBelongPage(), root_page_id_, false, RWType::WRITE);
           root_page_id_ = neber_internal->GetPageId();
           UpdateRootPageId(0);
         } else {

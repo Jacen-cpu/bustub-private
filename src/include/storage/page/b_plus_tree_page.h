@@ -59,6 +59,9 @@ class BPlusTreePage {
 
   auto GetPageId() const -> page_id_t;
   void SetPageId(page_id_t page_id);
+  
+  inline auto GetBelongPage() const -> Page * { return page_; }
+  inline void SetBelongPage(Page * page) { page_ = page; }
 
   void SetLSN(lsn_t lsn = INVALID_LSN);
   inline auto NeedSplit() -> bool { return size_ == max_size_; };
@@ -71,6 +74,7 @@ class BPlusTreePage {
   int max_size_ __attribute__((__unused__));
   page_id_t parent_page_id_ __attribute__((__unused__));
   page_id_t page_id_ __attribute__((__unused__));
+  Page * page_;
 };
 
 }  // namespace bustub

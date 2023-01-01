@@ -25,6 +25,8 @@ namespace bustub {
 
 #define BPLUSTREE_TYPE BPlusTree<KeyType, ValueType, KeyComparator>
 
+enum class RWType { READ = 0, WRITE };
+
 /**
  * Main class providing the API for the Interactive B+ Tree.
  *
@@ -104,19 +106,18 @@ class BPlusTree {
   // right_parent_id);
 
   /* some basic operations */
-  auto GetLeafPage(page_id_t leaf_id) -> LeafPage *;
-  auto GetInternalPage(page_id_t internal_id) -> InternalPage *;
-  auto GetPage(page_id_t page_id) -> BPlusTreePage *;
+  auto GetLeafPage(page_id_t leaf_id, RWType rw) -> LeafPage *;
+  auto GetInternalPage(page_id_t internal_id, RWType rw) -> InternalPage *;
+  auto GetPage(page_id_t page_id, RWType rw) -> BPlusTreePage *;
+  auto GetRootPage(page_id_t root_id) -> BPlusTreePage *;
   auto GetLeftMostKey(InternalPage *internal_page) -> KeyType;
   auto GetFirstLeaf() -> LeafPage *;
   auto GetLastLeaf() -> LeafPage *;
   auto CreateLeafPage() -> LeafPage *;
   auto CreateInternalPage() -> InternalPage *;
 
-  inline void UnpinPage(page_id_t page_id, bool is_dirty) {
-    assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true);
-  }
-  inline void DeletePage(page_id_t page_id) { assert(buffer_pool_manager_->DeletePage(page_id) == true); }
+  void UnpinPage(Page * page, page_id_t page_id, bool is_dirty, RWType rw);
+  void DeletePage(Page * page, page_id_t page_id, bool is_dirty, RWType rw);
 
   /* Debug function */
   auto CheckPin(page_id_t page_id) -> bool {
@@ -126,13 +127,14 @@ class BPlusTree {
     return count == 1;
   }
 
-  // member variable
+  /* == member variable == */ 
   std::string index_name_;
   page_id_t root_page_id_;
   BufferPoolManager *buffer_pool_manager_;
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+  std::mutex root_latch_;
 };
 
 }  // namespace bustub
