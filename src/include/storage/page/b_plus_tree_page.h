@@ -16,7 +16,9 @@
 #include <string>
 
 #include "buffer/buffer_pool_manager.h"
+// #include "storage/index/b_plus_tree.h"
 #include "storage/index/generic_key.h"
+#include "concurrency/transaction.h"
 
 namespace bustub {
 
@@ -65,7 +67,10 @@ class BPlusTreePage {
 
   void SetLSN(lsn_t lsn = INVALID_LSN);
   inline auto NeedSplit() -> bool { return size_ == max_size_; };
-
+  
+  auto IsSafe(OpType op) -> bool;
+  // For Debug
+  inline auto TryLock() -> bool { return page_->TryLock(); }
  private:
   // member variable, attributes that both internal and leaf page share
   IndexPageType page_type_ __attribute__((__unused__));

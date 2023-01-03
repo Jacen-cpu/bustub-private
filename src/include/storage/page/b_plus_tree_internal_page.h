@@ -46,6 +46,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   auto ValueAt(int index) const -> ValueType;
   auto Search(const KeyType &key, const KeyComparator &comparator) const -> int;
   auto SearchPosition(page_id_t page_id) const -> int;
+  auto SearchExit(const KeyType &key, const KeyComparator &comparator) -> page_id_t;
   auto Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> bool;
   void InsertFirst(const MappingType *value);
   void InsertLast(const MappingType *value);

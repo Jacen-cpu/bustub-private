@@ -11,6 +11,7 @@
 
 #include "storage/page/b_plus_tree_page.h"
 #include "common/config.h"
+#include "concurrency/transaction.h"
 
 namespace bustub {
 
@@ -58,4 +59,23 @@ void BPlusTreePage::SetPageId(page_id_t page_id) { page_id_ = page_id; }
  * Helper methods to set lsn
  */
 void BPlusTreePage::SetLSN(lsn_t lsn) { lsn_ = lsn; }
+
+/*
+ * Helper methods to check safe
+ */
+auto BPlusTreePage::IsSafe(OpType op) -> bool {
+    int pred_size = size_ + 1; 
+    if (op == OpType::INSERT) {
+        return pred_size < max_size_; 
+    }
+    // leaf: GetSize() < GetMaxSize() / 2
+    // internal: GetSize() < (GetMaxSize() + 1) / 2 - 1;
+    if (op == OpType::REMOVE) {
+        return IsLeafPage()
+               ? !(pred_size < max_size_ / 2)
+               : !(pred_size < (max_size_ + 1) / 2 - 1);
+    }
+    assert(false);
+}
+
 }  // namespace bustub

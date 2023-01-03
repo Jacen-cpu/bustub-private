@@ -96,7 +96,8 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::NeedRedsb() -> bool {
-  return IsRootPage() ? GetSize() < 1 : GetSize() < (GetMaxSize() + 1) / 2 - 1;
+  assert(!IsRootPage());
+  return GetSize() < (GetMaxSize() + 1) / 2 - 1;
 }
 
 // INDEX_TEMPLATE_ARGUMENTS
@@ -184,6 +185,20 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SearchPosition(page_id_t page_id) const -> 
   }
 
   return -1;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SearchExit(const KeyType &key, const KeyComparator &comparator) -> page_id_t {
+  int size = GetSize();
+  return [&]() -> page_id_t {
+    for (int i = 1; i <= size; ++i) {
+      KeyType cur_key = KeyAt(i);
+      if (comparator(cur_key, key) == 1) {
+        return ValueAt(i - 1);
+      }
+    }
+    return ValueAt(size);
+  }();
 }
 
 // valuetype for internalNode should be page id_t

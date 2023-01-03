@@ -53,6 +53,12 @@ enum class IsolationLevel { READ_UNCOMMITTED, REPEATABLE_READ, READ_COMMITTED };
  */
 enum class WType { INSERT = 0, DELETE, UPDATE };
 
+/**
+ * Types
+ */
+enum class RWType { READ = 0, WRITE, UPDATE };
+enum class OpType { INSERT = 0, REMOVE, READ };
+
 class TableHeap;
 class Catalog;
 using table_oid_t = uint32_t;
@@ -160,6 +166,7 @@ class Transaction {
     index_write_set_ = std::make_shared<std::deque<IndexWriteRecord>>();
     page_set_ = std::make_shared<std::deque<bustub::Page *>>();
     deleted_page_set_ = std::make_shared<std::unordered_set<page_id_t>>();
+    old_root_id_ = INVALID_PAGE_ID;
   }
 
   ~Transaction() = default;
@@ -246,6 +253,9 @@ class Transaction {
    * @param prev_lsn new previous lsn
    */
   inline void SetPrevLSN(lsn_t prev_lsn) { prev_lsn_ = prev_lsn; }
+  
+  inline void SetOldRootId(page_id_t root_id) { old_root_id_ = root_id; }
+  inline auto GetOldRootId() const -> page_id_t { return old_root_id_; }
 
  private:
   /** The current transaction state. */
@@ -273,6 +283,8 @@ class Transaction {
   std::shared_ptr<std::unordered_set<RID>> shared_lock_set_;
   /** LockManager: the set of exclusive-locked tuples held by this transaction. */
   std::shared_ptr<std::unordered_set<RID>> exclusive_lock_set_;
+  /** old root id **/
+  page_id_t old_root_id_;
 };
 
 }  // namespace bustub

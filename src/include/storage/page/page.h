@@ -65,6 +65,13 @@ class Page {
 
   /** Sets the page LSN. */
   inline void SetLSN(lsn_t lsn) { memcpy(GetData() + OFFSET_LSN, &lsn, sizeof(lsn_t)); }
+  
+  inline auto IsDeath() const -> bool { return is_death_; }
+  
+  inline void SetDeath() { is_death_ = true; }
+  
+  /** Debug **/
+  inline auto TryLock() -> bool { return rwlatch_.TryLock(); }
 
  protected:
   static_assert(sizeof(page_id_t) == 4);
@@ -86,6 +93,8 @@ class Page {
   int pin_count_ = 0;
   /** True if the page is dirty, i.e. it is different from its corresponding page on disk. */
   bool is_dirty_ = false;
+  /** True if the page is death. **/
+  bool is_death_ = false;
   /** Page latch. */
   ReaderWriterLatch rwlatch_;
 };
