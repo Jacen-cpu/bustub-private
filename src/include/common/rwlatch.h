@@ -43,7 +43,7 @@ class ReaderWriterLatch {
    * Release a read latch.
    */
   void RUnlock() { mutex_.unlock_shared(); }
-  
+
   auto TryLock() -> bool { return mutex_.try_lock_shared(); }
 
  private:

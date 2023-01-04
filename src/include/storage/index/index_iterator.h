@@ -28,7 +28,7 @@ class IndexIterator {
  public:
   // you may define your own constructor based on your member variables
   IndexIterator();
-  IndexIterator(LeafPage * leaf, BufferPoolManager *bpm, int cur_pos = 0);
+  IndexIterator(LeafPage *leaf, BufferPoolManager *bpm, int cur_pos = 0);
 
   ~IndexIterator();  // NOLINT
 
@@ -38,12 +38,17 @@ class IndexIterator {
 
   auto operator++() -> IndexIterator &;
 
-  auto operator==(const IndexIterator &itr) const -> bool { return itr.leaf_->GetPageId() == leaf_->GetPageId() && itr.cur_pos_ == cur_pos_; }
+  auto operator==(const IndexIterator &itr) const -> bool {
+    return itr.leaf_->GetPageId() == leaf_->GetPageId() && itr.cur_pos_ == cur_pos_;
+  }
 
-  auto operator!=(const IndexIterator &itr) const -> bool { return itr.leaf_->GetPageId() != leaf_->GetPageId() || itr.cur_pos_ != cur_pos_; }
+  auto operator!=(const IndexIterator &itr) const -> bool {
+    return itr.leaf_->GetPageId() != leaf_->GetPageId() || itr.cur_pos_ != cur_pos_;
+  }
+
+  auto GetPage() -> Page * { return leaf_->GetBelongPage(); }
 
  private:
-
   LeafPage *leaf_;
   int cur_leaf_size_;
   int cur_pos_;

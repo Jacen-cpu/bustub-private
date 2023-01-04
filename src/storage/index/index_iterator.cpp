@@ -16,18 +16,16 @@ INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator() = default;
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(LeafPage * leaf, BufferPoolManager *bpm, int cur_pos)
+INDEXITERATOR_TYPE::IndexIterator(LeafPage *leaf, BufferPoolManager *bpm, int cur_pos)
     : leaf_(leaf), cur_pos_(cur_pos), buffer_pool_manager_(bpm) {
-      cur_leaf_size_ = leaf->GetSize();
+  cur_leaf_size_ = leaf->GetSize();
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool { 
-  return leaf_->IsLast() && cur_pos_ == cur_leaf_size_ - 1; 
-}
+auto INDEXITERATOR_TYPE::IsEnd() -> bool { return leaf_->IsLast() && cur_pos_ == cur_leaf_size_ - 1; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & { return leaf_->MappingAt(cur_pos_); }

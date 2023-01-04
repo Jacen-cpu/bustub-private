@@ -17,8 +17,8 @@
 
 #include "buffer/buffer_pool_manager.h"
 // #include "storage/index/b_plus_tree.h"
-#include "storage/index/generic_key.h"
 #include "concurrency/transaction.h"
+#include "storage/index/generic_key.h"
 
 namespace bustub {
 
@@ -61,16 +61,17 @@ class BPlusTreePage {
 
   auto GetPageId() const -> page_id_t;
   void SetPageId(page_id_t page_id);
-  
+
   inline auto GetBelongPage() const -> Page * { return page_; }
-  inline void SetBelongPage(Page * page) { page_ = page; }
+  inline void SetBelongPage(Page *page) { page_ = page; }
 
   void SetLSN(lsn_t lsn = INVALID_LSN);
   inline auto NeedSplit() -> bool { return size_ == max_size_; };
-  
+
   auto IsSafe(OpType op) -> bool;
   // For Debug
   inline auto TryLock() -> bool { return page_->TryLock(); }
+
  private:
   // member variable, attributes that both internal and leaf page share
   IndexPageType page_type_ __attribute__((__unused__));
@@ -79,7 +80,7 @@ class BPlusTreePage {
   int max_size_ __attribute__((__unused__));
   page_id_t parent_page_id_ __attribute__((__unused__));
   page_id_t page_id_ __attribute__((__unused__));
-  Page * page_;
+  Page *page_;
 };
 
 }  // namespace bustub

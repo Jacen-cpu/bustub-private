@@ -84,9 +84,9 @@ class BPlusTree {
 
   void ToString(BPlusTreePage *page, BufferPoolManager *bpm) const;
 
-  auto FindLeafPage(const KeyType &key, bool left_most, OpType op, Transaction * transaction) -> LeafPage *;
-  auto CrabingPage(page_id_t page_id, page_id_t previous, OpType op, Transaction * transaction) -> BPlusTreePage *;
-  void FreePage(page_id_t cur_id, RWType rw, Transaction * transaction);
+  auto FindLeafPage(const KeyType &key, bool left_most, OpType op, Transaction *transaction) -> LeafPage *;
+  auto CrabingPage(page_id_t page_id, page_id_t previous, OpType op, Transaction *transaction) -> BPlusTreePage *;
+  void FreePage(page_id_t cur_id, RWType rw, Transaction *transaction);
 
   void SplitLeaf(LeafPage *over_node);
 
@@ -96,7 +96,7 @@ class BPlusTree {
 
   void UpdateParentId(page_id_t page_id, page_id_t p_page_id);
 
-  auto StealSibling(LeafPage *deleting_leaf, Transaction * transaction) -> bool;
+  auto StealSibling(LeafPage *deleting_leaf, Transaction *transaction) -> bool;
 
   auto StealInternal(InternalPage *deleting_internal, InternalPage *parent_internal, InternalPage *neber_internal,
                      int target_index, bool is_last) -> bool;
@@ -110,17 +110,17 @@ class BPlusTree {
   auto GetInternalPage(page_id_t internal_id, RWType rw) -> InternalPage *;
   auto GetPage(page_id_t page_id, RWType rw) -> BPlusTreePage *;
 
-  auto GetRootPage(OpType rw, Transaction * transaction) -> BPlusTreePage *;
+  auto GetRootPage(OpType op, Transaction *transaction) -> BPlusTreePage *;
   auto GetLeftMostKey(InternalPage *internal_page) -> KeyType;
   auto GetFirstLeaf() -> LeafPage *;
   auto GetLastLeaf() -> LeafPage *;
 
-  auto CreateLeafPage(page_id_t * new_page_id, page_id_t parent_page_id, RWType rw) -> LeafPage *;
-  auto CreateInternalPage(page_id_t * new_page_id, page_id_t parent_page_id, RWType rw) -> InternalPage *;
-  auto CreatePage(page_id_t * new_page_id, RWType rw) -> BPlusTreePage *;
+  auto CreateLeafPage(page_id_t *new_page_id, page_id_t parent_page_id, RWType rw) -> LeafPage *;
+  auto CreateInternalPage(page_id_t *new_page_id, page_id_t parent_page_id, RWType rw) -> InternalPage *;
+  auto CreatePage(page_id_t *new_page_id, RWType rw) -> BPlusTreePage *;
 
-  void UnpinPage(Page * page, page_id_t page_id, bool is_dirty, RWType rw);
-  void DeletePage(Page * page, page_id_t page_id, bool is_dirty, RWType rw);
+  void UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWType rw);
+  void DeletePage(Page *page, page_id_t page_id, bool is_dirty, RWType rw);
 
   /* Debug function */
   auto CheckPin(page_id_t page_id) -> bool {
@@ -130,7 +130,7 @@ class BPlusTree {
     return count == 1;
   }
 
-  /* == member variable == */ 
+  /* == member variable == */
   std::string index_name_;
   page_id_t root_page_id_;
   BufferPoolManager *buffer_pool_manager_;
