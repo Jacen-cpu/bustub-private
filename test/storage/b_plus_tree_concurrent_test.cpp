@@ -358,7 +358,7 @@ TEST(BPlusTreeConcurrentTest, DISABLED_MixTest) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_DeleteTest2) {
+TEST(BPlusTreeConcurrentTestC2Seq, DeleteTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());

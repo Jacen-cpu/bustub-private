@@ -599,7 +599,7 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
       // update list
       if (rest_leaf->IsFirst()) {
         merging_leaf->SetPrevPageId(INVALID_PAGE_ID);
-        first_leaf_id_ = merging_leaf->GetPrevPageId();
+        first_leaf_id_ = merging_leaf->GetPageId();
       } else {
         auto prev_leaf = GetLeafPage(rest_leaf->GetPrevPageId(), RWType::UPDATE);
         prev_leaf->SetNextPageId(merging_leaf->GetPageId());
