@@ -379,7 +379,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_DeleteTest2) {
 
   std::vector<int64_t> keys;
   // for (int64_t key = 1; key < 10000; key++) {
-    // keys.push_back(key);
+  // keys.push_back(key);
   // }
   keys = {1, 2, 3, 4, 5};
   for (auto key : keys) {
@@ -423,7 +423,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_DeleteTest2) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
   }
-  
+
   tree.Draw(bpm, "after_remove.dot");
 
   start_key = 2;

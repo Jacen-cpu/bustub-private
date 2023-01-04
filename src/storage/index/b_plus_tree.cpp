@@ -124,7 +124,9 @@ auto BPLUSTREE_TYPE::CreateInternalPage(page_id_t *new_page_id, page_id_t parent
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWType rw) {
   rw == RWType::UPDATE ? void(0) : rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
-  if (rw != RWType::UPDATE) { assert(page->GetPinCount() != 0 && "The page may have written back to disk."); }
+  if (rw != RWType::UPDATE) {
+    assert(page->GetPinCount() != 0 && "The page may have written back to disk.");
+  }
   assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true && "Unpin page fail!");
 }
 
@@ -720,39 +722,39 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
   }
 }
 
-/**
- * @brief
- *
- * @return LeafPage*
- */
-INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::GetFirstLeaf() -> LeafPage * {
-  BPlusTreePage *cur_page = GetInternalPage(root_page_id_, RWType::UPDATE);
-  while (!cur_page->IsLeafPage()) {
-    auto internal = reinterpret_cast<InternalPage *>(cur_page);
-    cur_page = GetPage(internal->ValueAt(0), RWType::UPDATE);
-    UnpinPage(internal->GetBelongPage(), internal->GetPageId(), false, RWType::UPDATE);
-  }
-  auto leaf = reinterpret_cast<LeafPage *>(cur_page);
-  assert(leaf->IsFirst());
-  return leaf;
-}
+// /**
+// * @brief
+// *
+// * @return LeafPage*
+// */
+// INDEX_TEMPLATE_ARGUMENTS
+// auto BPLUSTREE_TYPE::GetFirstLeaf() -> LeafPage * {
+// BPlusTreePage *cur_page = GetInternalPage(root_page_id_, RWType::UPDATE);
+// while (!cur_page->IsLeafPage()) {
+// auto internal = reinterpret_cast<InternalPage *>(cur_page);
+// cur_page = GetPage(internal->ValueAt(0), RWType::UPDATE);
+// UnpinPage(internal->GetBelongPage(), internal->GetPageId(), false, RWType::UPDATE);
+// }
+// auto leaf = reinterpret_cast<LeafPage *>(cur_page);
+// assert(leaf->IsFirst());
+// return leaf;
+// }
 
-/**
- * @brief
- *
- * @return LeafPage*
- */
-INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::GetLastLeaf() -> LeafPage * {
-  BPlusTreePage *cur_page = GetInternalPage(root_page_id_, RWType::UPDATE);
-  while (!cur_page->IsLeafPage()) {
-    auto internal = reinterpret_cast<InternalPage *>(cur_page);
-    cur_page = GetPage(internal->ValueAt(cur_page->GetSize()), RWType::UPDATE);
-    UnpinPage(internal->GetBelongPage(), internal->GetPageId(), false, RWType::UPDATE);
-  }
-  return reinterpret_cast<LeafPage *>(cur_page);
-}
+// /**
+// * @brief
+// *
+// * @return LeafPage*
+// */
+// INDEX_TEMPLATE_ARGUMENTS
+// auto BPLUSTREE_TYPE::GetLastLeaf() -> LeafPage * {
+// BPlusTreePage *cur_page = GetInternalPage(root_page_id_, RWType::UPDATE);
+// while (!cur_page->IsLeafPage()) {
+// auto internal = reinterpret_cast<InternalPage *>(cur_page);
+// cur_page = GetPage(internal->ValueAt(cur_page->GetSize()), RWType::UPDATE);
+// UnpinPage(internal->GetBelongPage(), internal->GetPageId(), false, RWType::UPDATE);
+// }
+// return reinterpret_cast<LeafPage *>(cur_page);
+// }
 
 /**
  * @brief
@@ -820,7 +822,8 @@ void BPLUSTREE_TYPE::UpdateParentKey(const KeyType &new_key, page_id_t page_id) 
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(GetLeafPage(first_leaf_id_, RWType::UPDATE), buffer_pool_manager_));
+  return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(GetLeafPage(first_leaf_id_, RWType::UPDATE),
+                                                                    buffer_pool_manager_));
 }
 
 /*
@@ -844,7 +847,8 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
-  auto target_leaf = GetLeafPage(last_leaf_id_, RWType::UPDATE);;
+  auto target_leaf = GetLeafPage(last_leaf_id_, RWType::UPDATE);
+  ;
   return std::move(
       IndexIterator<KeyType, ValueType, KeyComparator>(target_leaf, buffer_pool_manager_, target_leaf->GetSize()));
 }

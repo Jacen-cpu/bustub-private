@@ -115,8 +115,8 @@ class BPlusTree {
 
   auto GetRootPage(OpType op, Transaction *transaction) -> BPlusTreePage *;
   auto GetLeftMostKey(InternalPage *internal_page) -> KeyType;
-  auto GetFirstLeaf() -> LeafPage *;
-  auto GetLastLeaf() -> LeafPage *;
+  // auto GetFirstLeaf() -> LeafPage *;
+  // auto GetLastLeaf() -> LeafPage *;
 
   auto CreateLeafPage(page_id_t *new_page_id, page_id_t parent_page_id, RWType rw) -> LeafPage *;
   auto CreateInternalPage(page_id_t *new_page_id, page_id_t parent_page_id, RWType rw) -> InternalPage *;
