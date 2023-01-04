@@ -140,6 +140,8 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+  page_id_t first_leaf_id_ = INVALID_PAGE_ID;
+  page_id_t last_leaf_id_ = INVALID_PAGE_ID;
   std::mutex root_latch_;
   std::mutex leafs_latch_;
 };

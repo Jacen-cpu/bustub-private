@@ -250,6 +250,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     // auto new_root = reinterpret_cast<LeafPage *>(buffer_pool_manager_->NewPage(&new_root_page_id));
     auto new_root = CreateLeafPage(&new_root_page_id, INVALID_PAGE_ID, RWType::WRITE);
     root_page_id_ = new_root_page_id;
+    first_leaf_id_ = last_leaf_id_ = new_root_page_id;
     UpdateRootPageId(0);
     new_root->Insert(key, value, comparator_);
     UnpinPage(new_root->GetBelongPage(), new_root->GetPageId(), true, RWType::WRITE);
@@ -329,6 +330,7 @@ void BPLUSTREE_TYPE::SplitLeaf(LeafPage *over_node) {
     UnpinPage(leaf->GetBelongPage(), next_page_id, true, RWType::UPDATE);
   }
   over_node->SetNextPageId(new_leaf_id);
+  last_leaf_id_ = new_leaf_id;
 
   /* = move data = */
   auto left_arr = over_node->GetArray();
@@ -585,6 +587,7 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
       merging_leaf->MergeFromRight(rest_leaf);
       // update list
       merging_leaf->SetNextPageId(INVALID_PAGE_ID);
+      last_leaf_id_ = merging_leaf->GetPageId();
       // remove the correspond parent item
       parent_page->Remove(target_index);
     } else {
@@ -594,6 +597,7 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
       // update list
       if (rest_leaf->IsFirst()) {
         merging_leaf->SetPrevPageId(INVALID_PAGE_ID);
+        first_leaf_id_ = merging_leaf->GetPrevPageId();
       } else {
         auto prev_leaf = GetLeafPage(rest_leaf->GetPrevPageId(), RWType::UPDATE);
         prev_leaf->SetNextPageId(merging_leaf->GetPageId());
@@ -816,7 +820,7 @@ void BPLUSTREE_TYPE::UpdateParentKey(const KeyType &new_key, page_id_t page_id) 
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(GetFirstLeaf(), buffer_pool_manager_));
+  return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(GetLeafPage(first_leaf_id_, RWType::UPDATE), buffer_pool_manager_));
 }
 
 /*
@@ -840,7 +844,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
-  auto target_leaf = GetLastLeaf();
+  auto target_leaf = GetLeafPage(last_leaf_id_, RWType::UPDATE);;
   return std::move(
       IndexIterator<KeyType, ValueType, KeyComparator>(target_leaf, buffer_pool_manager_, target_leaf->GetSize()));
 }
