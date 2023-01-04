@@ -70,6 +70,7 @@ auto BPlusTreePage::IsSafe(OpType op) -> bool {
     }
     // leaf: GetSize() < GetMaxSize() / 2
     // internal: GetSize() < (GetMaxSize() + 1) / 2 - 1;
+    pred_size = size_ - 1;
     if (op == OpType::REMOVE) {
         return IsLeafPage()
                ? !(pred_size < max_size_ / 2)

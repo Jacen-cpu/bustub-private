@@ -16,6 +16,7 @@
 #include <thread>  // NOLINT
 
 #include "buffer/buffer_pool_manager_instance.h"
+#include "common/logger.h"
 #include "gtest/gtest.h"
 #include "storage/index/b_plus_tree.h"
 #include "test_util.h"  // NOLINT
@@ -121,6 +122,9 @@ TEST(BPlusTreeConcurrentTest, InsertTest1) {
   }
   LaunchParallelTest(2, InsertHelper, &tree, keys);
 
+
+  tree.Draw(bpm, "concurrent_insert1.dot");
+
   std::vector<RID> rids;
   GenericKey<8> index_key;
   for (auto key : keys) {
@@ -133,17 +137,19 @@ TEST(BPlusTreeConcurrentTest, InsertTest1) {
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
 
-  // int64_t start_key = 1;
-  // int64_t current_key = start_key;
-  // index_key.SetFromInteger(start_key);
-  // for (auto iterator = tree.Begin(index_key); iterator != tree.End(); ++iterator) {
-    // auto location = (*iterator).second;
-    // EXPECT_EQ(location.GetPageId(), 0);
-    // EXPECT_EQ(location.GetSlotNum(), current_key);
-    // current_key = current_key + 1;
-  // }
+  int64_t start_key = 1;
+  int64_t current_key = start_key;
+  index_key.SetFromInteger(start_key);
+  for (auto iterator = tree.Begin(index_key); iterator != tree.End(); ++iterator) {
+    auto location = (*iterator).second;
+    EXPECT_EQ(location.GetPageId(), 0);
+    EXPECT_EQ(location.GetSlotNum(), current_key);
+    LOG_DEBUG("Current key %ld", current_key);
+    assert(location.GetSlotNum() == current_key);
+    current_key = current_key + 1;
+  }
 
-  // EXPECT_EQ(current_key, keys.size() + 1);
+  EXPECT_EQ(current_key, keys.size() + 1);
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete disk_manager;
@@ -186,17 +192,17 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
 
-  // int64_t start_key = 1;
-  // int64_t current_key = start_key;
-  // index_key.SetFromInteger(start_key);
-  // for (auto iterator = tree.Begin(index_key); iterator != tree.End(); ++iterator) {
-    // auto location = (*iterator).second;
-    // EXPECT_EQ(location.GetPageId(), 0);
-    // EXPECT_EQ(location.GetSlotNum(), current_key);
-    // current_key = current_key + 1;
-  // }
+  int64_t start_key = 1;
+  int64_t current_key = start_key;
+  index_key.SetFromInteger(start_key);
+  for (auto iterator = tree.Begin(index_key); iterator != tree.End(); ++iterator) {
+    auto location = (*iterator).second;
+    EXPECT_EQ(location.GetPageId(), 0);
+    EXPECT_EQ(location.GetSlotNum(), current_key);
+    current_key = current_key + 1;
+  }
 
-  // EXPECT_EQ(current_key, keys.size() + 1);
+  EXPECT_EQ(current_key, keys.size() + 1);
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete disk_manager;
@@ -205,7 +211,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTest, DISABLED_DeleteTest1) {
+TEST(BPlusTreeConcurrentTest, DeleteTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -213,7 +219,7 @@ TEST(BPlusTreeConcurrentTest, DISABLED_DeleteTest1) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
   GenericKey<8> index_key;
   // create and fetch header_page
   page_id_t page_id;
@@ -222,6 +228,8 @@ TEST(BPlusTreeConcurrentTest, DISABLED_DeleteTest1) {
   // sequential insert
   std::vector<int64_t> keys = {1, 2, 3, 4, 5};
   InsertHelper(&tree, keys);
+
+  tree.Draw(bpm, "DeleteTest1.dot");
 
   std::vector<int64_t> remove_keys = {1, 5, 3, 4};
   LaunchParallelTest(2, DeleteHelper, &tree, remove_keys);
@@ -247,7 +255,7 @@ TEST(BPlusTreeConcurrentTest, DISABLED_DeleteTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTest, DISABLED_DeleteTest2) {
+TEST(BPlusTreeConcurrentTest, DeleteTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -290,7 +298,7 @@ TEST(BPlusTreeConcurrentTest, DISABLED_DeleteTest2) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTest, DISABLED_MixTest) {
+TEST(BPlusTreeConcurrentTest, MixTest) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
