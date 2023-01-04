@@ -68,11 +68,13 @@ auto BPLUSTREE_TYPE::GetLeafPage(page_id_t leaf_id, RWType rw) -> LeafPage * {
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetRootPage(OpType op, Transaction *transaction) -> BPlusTreePage * {
   RWType rw = op == OpType::READ ? RWType::READ : RWType::WRITE;
-  if (transaction != nullptr) {
-    root_latch_.lock();
-    transaction->SetOldRootId(root_page_id_);
-  }
+  // if (transaction != nullptr) {
+  // root_latch_.lock();
+  // transaction->SetOldRootId(root_page_id_);
+  // }
+  root_latch_.lock();
   BPlusTreePage *root_page = GetPage(root_page_id_, rw);
+  root_page->SetIsCurRoot(true);
   // check root
   // while (!root_page->IsRootPage()) {
   // UnpinPage(root_page->GetBelongPage(), root_page->GetPageId(), false, rw);
@@ -186,13 +188,16 @@ void BPLUSTREE_TYPE::FreePage(page_id_t cur_id, RWType rw, Transaction *transact
   }
   for (Page *page : *transaction->GetPageSet()) {
     int page_id = page->GetPageId();
+    auto bpt = reinterpret_cast<BPlusTreePage *>(page->GetData());
+    bool is_cur_root = bpt->IsCurRoot();
     if (transaction->GetDeletedPageSet()->find(page_id) != transaction->GetDeletedPageSet()->end()) {
       DeletePage(page, page_id, false, rw);
       transaction->GetDeletedPageSet()->erase(page_id);
     } else {
-      UnpinPage(page, page_id, is_dirty, rw);
+      bpt->SetIsCurRoot(false);
+      UnpinPage(page, page_id, is_dirty || is_cur_root, rw);
     }
-    if (page_id == transaction->GetOldRootId()) {
+    if (is_cur_root) {
       root_latch_.unlock();
     }
   }
