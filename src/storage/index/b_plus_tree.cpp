@@ -124,7 +124,7 @@ auto BPLUSTREE_TYPE::CreateInternalPage(page_id_t *new_page_id, page_id_t parent
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWType rw) {
   rw == RWType::UPDATE ? void(0) : rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
-  assert(page->GetPinCount() != 0 && "The page may have written back to disk.");
+  if (rw != RWType::UPDATE) { assert(page->GetPinCount() != 0 && "The page may have written back to disk."); }
   assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true && "Unpin page fail!");
 }
 
@@ -827,6 +827,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   auto target_leaf = FindLeafPage(key, true, OpType::READ, nullptr);
+  target_leaf->GetBelongPage()->RUnlatch();
   int targe_index = target_leaf->Search(key, comparator_);
   assert(targe_index != -1);
   return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(target_leaf, buffer_pool_manager_, targe_index));

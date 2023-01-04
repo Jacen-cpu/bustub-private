@@ -28,7 +28,7 @@ namespace bustub {
  * Types
  */
 enum class RWType { READ = 0, WRITE, UPDATE };
-enum class OpType { INSERT = 0, REMOVE, READ };
+enum class OpType { INSERT = 0, REMOVE, READ, ITER };
 
 #define INDEX_TEMPLATE_ARGUMENTS template <typename KeyType, typename ValueType, typename KeyComparator>
 

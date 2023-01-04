@@ -22,7 +22,9 @@ INDEXITERATOR_TYPE::IndexIterator(LeafPage *leaf, BufferPoolManager *bpm, int cu
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
+INDEXITERATOR_TYPE::~IndexIterator() {
+  buffer_pool_manager_->UnpinPage(leaf_->GetPageId(), false);
+};  // NOLINT
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::IsEnd() -> bool { return leaf_->IsLast() && cur_pos_ == cur_leaf_size_ - 1; }
