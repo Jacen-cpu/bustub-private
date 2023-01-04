@@ -330,9 +330,10 @@ void BPLUSTREE_TYPE::SplitLeaf(LeafPage *over_node) {
     auto leaf = GetLeafPage(next_page_id, RWType::UPDATE);
     leaf->SetPrevPageId(new_leaf_id);
     UnpinPage(leaf->GetBelongPage(), next_page_id, true, RWType::UPDATE);
+  } else {
+    last_leaf_id_ = new_leaf_id;
   }
   over_node->SetNextPageId(new_leaf_id);
-  last_leaf_id_ = new_leaf_id;
 
   /* = move data = */
   auto left_arr = over_node->GetArray();
@@ -833,11 +834,11 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
-  auto target_leaf = FindLeafPage(key, true, OpType::READ, nullptr);
+  auto target_leaf = FindLeafPage(key, false, OpType::READ, nullptr);
   target_leaf->GetBelongPage()->RUnlatch();
-  int targe_index = target_leaf->Search(key, comparator_);
-  assert(targe_index != -1);
-  return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(target_leaf, buffer_pool_manager_, targe_index));
+  int target_index = target_leaf->Search(key, comparator_);
+  assert(target_index != -1);
+  return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(target_leaf, buffer_pool_manager_, target_index));
 }
 
 /*
@@ -848,7 +849,6 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
   auto target_leaf = GetLeafPage(last_leaf_id_, RWType::UPDATE);
-  ;
   return std::move(
       IndexIterator<KeyType, ValueType, KeyComparator>(target_leaf, buffer_pool_manager_, target_leaf->GetSize()));
 }
