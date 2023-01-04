@@ -24,6 +24,12 @@ namespace bustub {
 
 #define MappingType std::pair<KeyType, ValueType>
 
+/**
+ * Types
+ */
+enum class RWType { READ = 0, WRITE, UPDATE };
+enum class OpType { INSERT = 0, REMOVE, READ };
+
 #define INDEX_TEMPLATE_ARGUMENTS template <typename KeyType, typename ValueType, typename KeyComparator>
 
 // define page type enum
@@ -69,8 +75,6 @@ class BPlusTreePage {
   inline auto NeedSplit() -> bool { return size_ == max_size_; };
 
   auto IsSafe(OpType op) -> bool;
-  // For Debug
-  inline auto TryLock() -> bool { return page_->TryLock(); }
 
  private:
   // member variable, attributes that both internal and leaf page share

@@ -53,12 +53,6 @@ enum class IsolationLevel { READ_UNCOMMITTED, REPEATABLE_READ, READ_COMMITTED };
  */
 enum class WType { INSERT = 0, DELETE, UPDATE };
 
-/**
- * Types
- */
-enum class RWType { READ = 0, WRITE, UPDATE };
-enum class OpType { INSERT = 0, REMOVE, READ };
-
 class TableHeap;
 class Catalog;
 using table_oid_t = uint32_t;

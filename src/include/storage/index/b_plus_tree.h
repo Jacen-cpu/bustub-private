@@ -25,6 +25,9 @@ namespace bustub {
 
 #define BPLUSTREE_TYPE BPlusTree<KeyType, ValueType, KeyComparator>
 
+// enum class RWType { READ = 0, WRITE, UPDATE };
+// enum class OpType { INSERT = 0, REMOVE, READ };
+
 /**
  * Main class providing the API for the Interactive B+ Tree.
  *
