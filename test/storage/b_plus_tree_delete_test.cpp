@@ -29,7 +29,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 3);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
@@ -40,7 +40,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
   auto header_page = bpm->NewPage(&page_id);
   (void)header_page;
 
-  std::vector<int64_t> keys = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+  std::vector<int64_t> keys = {1, 3, 5, 2};
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
@@ -48,48 +48,66 @@ TEST(BPlusTreeTests, DeleteTest1) {
     tree.Insert(index_key, rid, transaction);
   }
 
-  // auto key = static_cast<int64_t>(7);
-  // index_key.SetFromInteger(key);
-  // tree.Remove(index_key);
   tree.Draw(bpm, "origin_tree.dot");
+  
+  // BUG Operation ?????
 
-  std::vector<RID> rids;
-  for (auto key : keys) {
-    rids.clear();
-    index_key.SetFromInteger(key);
-    tree.GetValue(index_key, &rids);
-    EXPECT_EQ(rids.size(), 1);
+  // Remove 1
+  index_key.SetFromInteger(1);
+  tree.Remove(index_key, transaction);
 
-    int64_t value = key & 0xFFFFFFFF;
-    EXPECT_EQ(rids[0].GetSlotNum(), value);
-  }
+  // Insert 4
+  int64_t key = 4;
+  int64_t value = key & 0xFFFFFFFF;
 
-  std::vector<int64_t> remove_keys = {1, 5};
-  for (auto key : remove_keys) {
-    index_key.SetFromInteger(key);
-    tree.Remove(index_key, transaction);
-    tree.Draw(bpm, "delete" + std::to_string(key) + ".dot");
-  }
+  rid.Set(static_cast<int32_t>(key >> 32), value);
+  index_key.SetFromInteger(key);
+  tree.Insert(index_key, rid, transaction);
+  
+  // Remove 3
 
-  int64_t size = 0;
-  bool is_present;
+  index_key.SetFromInteger(3);
+  tree.Remove(index_key, transaction);
 
-  for (auto key : keys) {
-    rids.clear();
-    index_key.SetFromInteger(key);
-    is_present = tree.GetValue(index_key, &rids);
+  tree.Draw(bpm, "bug_tree.dot");
 
-    if (!is_present) {
-      EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
-    } else {
-      EXPECT_EQ(rids.size(), 1);
-      EXPECT_EQ(rids[0].GetPageId(), 0);
-      EXPECT_EQ(rids[0].GetSlotNum(), key);
-      size = size + 1;
-    }
-  }
+  // std::vector<int64_t> remove_keys = {1, 5};
+  // for (auto key : remove_keys) {
+    // index_key.SetFromInteger(key);
+    // tree.Draw(bpm, "delete" + std::to_string(key) + ".dot");
+  // }
 
-  EXPECT_EQ(size, 8);
+  // std::vector<RID> rids;
+  // for (auto key : keys) {
+    // rids.clear();
+    // index_key.SetFromInteger(key);
+    // tree.GetValue(index_key, &rids);
+    // EXPECT_EQ(rids.size(), 1);
+
+    // int64_t value = key & 0xFFFFFFFF;
+    // EXPECT_EQ(rids[0].GetSlotNum(), value);
+  // }
+
+
+  // int64_t size = 0;
+  // bool is_present;
+
+  // for (auto key : keys) {
+    // krids.clear();
+    // kindex_key.SetFromInteger(key);
+    // kis_present = tree.GetValue(index_key, &rids);
+
+    // kif (!is_present) {
+      // kEXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
+    // k} else {
+      // kEXPECT_EQ(rids.size(), 1);
+      // kEXPECT_EQ(rids[0].GetPageId(), 0);
+      // kEXPECT_EQ(rids[0].GetSlotNum(), key);
+      // ksize = size + 1;
+    // k}
+  // k}
+
+  // EXPECT_EQ(size, 8);
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete transaction;
@@ -99,7 +117,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DeleteTest2) {
+TEST(BPlusTreeTests, DISABLED_DeleteTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());

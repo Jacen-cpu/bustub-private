@@ -17,6 +17,7 @@
 #include "buffer/buffer_pool_manager.h"
 #include "common/config.h"
 #include "common/exception.h"
+#include "common/logger.h"
 #include "common/rid.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
 #include "storage/page/b_plus_tree_page.h"
@@ -130,6 +131,7 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::StealFirst(MappingType *value) -> bool {
   if (GetSize() - 1 < GetMaxSize() / 2) {
     return false;
   }
+
   *value = array_[0];
   std::copy(array_ + 1, array_ + GetSize(), array_);
   IncreaseSize(-1);

@@ -169,21 +169,27 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Search(const KeyType &key, const KeyCompara
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SearchPosition(page_id_t page_id) const -> int {
-  int left = 0;
-  int right = GetSize();
+  // int left = 0;
+  // int right = GetSize();
 
-  while (left <= right) {
-    int mid = (left + right) / 2;
-    if (array_[mid].second == page_id) {
-      return mid;
-    }
-    if (array_[mid].second < page_id) {
-      left = mid + 1;
-    } else {
-      right = mid - 1;
+  // while (left <= right) {
+    // int mid = (left + right) / 2;
+    // if (array_[mid].second == page_id) {
+      // return mid;
+    // }
+    // if (array_[mid].second < page_id) {
+      // left = mid + 1;
+    // } else {
+      // right = mid - 1;
+    // }
+  // }
+
+  // return -1;
+  for (int i = 0; i <= GetSize(); ++i) {
+    if (array_[i].second == page_id) {
+      return i;
     }
   }
-
   return -1;
 }
 

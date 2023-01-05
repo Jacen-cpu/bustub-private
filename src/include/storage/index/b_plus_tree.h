@@ -104,7 +104,7 @@ class BPlusTree {
   auto StealInternal(InternalPage *deleting_internal, InternalPage *parent_internal, InternalPage *neber_internal,
                      int target_index, bool is_last) -> bool;
 
-  void UpdateParentKey(const KeyType &new_key, page_id_t page_id);
+  // void UpdateParentKey(const KeyType &new_key, page_id_t page_id);
   // void UpdateRootParentKey(const KeyType &old_key, const KeyType &new_key, page_id_t  left_parent_id, page_id_t
   // right_parent_id);
 

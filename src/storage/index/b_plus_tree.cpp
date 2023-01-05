@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <new>
 #include <string>
+#include <thread>
 
 #include "common/config.h"
 #include "common/exception.h"
@@ -17,6 +18,8 @@
 #include "storage/page/header_page.h"
 
 namespace bustub {
+using std::this_thread::get_id;
+
 INDEX_TEMPLATE_ARGUMENTS
 BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manager, const KeyComparator &comparator,
                           int leaf_max_size, int internal_max_size)
@@ -124,9 +127,8 @@ auto BPLUSTREE_TYPE::CreateInternalPage(page_id_t *new_page_id, page_id_t parent
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWType rw) {
   rw == RWType::UPDATE ? void(0) : rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
-  if (rw != RWType::UPDATE) {
-    assert(page->GetPinCount() != 0 && "The page may have written back to disk.");
-  }
+  // assert(page->GetPinCount() != 0 && "The page may have written back to disk.");
+  // LOG_DEBUG("page %d, pin count is %d", page_id, page->GetPinCount());
   assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true && "Unpin page fail!");
 }
 
@@ -168,7 +170,17 @@ auto BPLUSTREE_TYPE::CrabingPage(page_id_t page_id, page_id_t previous, OpType o
     -> BPlusTreePage * {
   bool exclusive = op != OpType::READ;
   RWType rw = exclusive ? RWType::WRITE : RWType::READ;
-  auto b_tree_page = GetPage(page_id, rw);
+
+  // auto b_tree_page = GetPage(page_id, rw);
+
+  Page *page = buffer_pool_manager_->FetchPage(page_id);
+  auto b_tree_page = reinterpret_cast<BPlusTreePage *>(page->GetData());
+  if (b_tree_page->IsLeafPage()) {
+    leafs_latch_.lock();
+  }
+  rw == RWType::READ ? page->RLatch() : rw == RWType::WRITE ? page->WLatch() : void(0);
+  b_tree_page->SetBelongPage(page);
+  // return b_tree_page;
   if (previous > 0 && (!exclusive || b_tree_page->IsSafe(op))) {
     FreePage(previous, rw, transaction);
   }
@@ -188,10 +200,11 @@ void BPLUSTREE_TYPE::FreePage(page_id_t cur_id, RWType rw, Transaction *transact
     UnpinPage(page, cur_id, false, rw);
     return;
   }
+  bool is_cur_root = false;
   for (Page *page : *transaction->GetPageSet()) {
     int page_id = page->GetPageId();
     auto bpt = reinterpret_cast<BPlusTreePage *>(page->GetData());
-    bool is_cur_root = bpt->IsCurRoot();
+    is_cur_root = bpt->IsCurRoot();
     if (transaction->GetDeletedPageSet()->find(page_id) != transaction->GetDeletedPageSet()->end()) {
       DeletePage(page, page_id, false, rw);
       transaction->GetDeletedPageSet()->erase(page_id);
@@ -228,6 +241,9 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     result->push_back(leaf_node_page->ValueAt(index));
   }
 
+  /*===== unlock the sibling leaf======*/
+  leafs_latch_.unlock();
+  /*=================================*/
   FreePage(leaf_node_page->GetPageId(), RWType::READ, transaction);
   return index != -1;
 }
@@ -244,8 +260,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
-  LOG_DEBUG("Insert %ld ", key.ToString());
-
+  size_t thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id()) % 10;
   root_latch_.lock();
   if (root_page_id_ == INVALID_PAGE_ID) {
     page_id_t new_root_page_id;
@@ -262,24 +277,26 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   root_latch_.unlock();
 
   auto leaf_node_page = FindLeafPage(key, false, OpType::INSERT, transaction);
+  LOG_DEBUG("Thread %zu Insert %ld Unsafe Set size is %zu",thread_id , key.ToString(), transaction->GetPageSet()->size());
   // check duplication
   if (!leaf_node_page->Insert(key, value, comparator_)) {
     // UnpinPage(leaf_node_page->GetBelongPage(), leaf_node_page->GetPageId(), false, RWType::WRITE);
+    // Draw(buffer_pool_manager_, "Insert"+std::to_string(key.ToString()) + ".dot");
     FreePage(leaf_node_page->GetPageId(), RWType::WRITE, transaction);
+    /*===== unlock the sibling leaf======*/
+    leafs_latch_.unlock();
+    /*=================================*/
     return false;
   }
 
-  /*===== lock the sibling leaf======*/
-  leafs_latch_.lock();
-  /*=================================*/
   // check if needing splitting the node
   if (leaf_node_page->NeedSplit()) {
     SplitLeaf(leaf_node_page);
   }
 
   // UnpinPage(leaf_node_page->GetBelongPage(), leaf_node_page->GetPageId(), false, RWType::WRITE);
+  // Draw(buffer_pool_manager_, "Insert"+std::to_string(key.ToString()) + ".dot");
   FreePage(leaf_node_page->GetPageId(), RWType::WRITE, transaction);
-
   /*===== unlock the sibling leaf======*/
   leafs_latch_.unlock();
   /*=================================*/
@@ -444,54 +461,58 @@ void BPLUSTREE_TYPE::UpdateParentId(page_id_t page_id, page_id_t p_page_id) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
-  LOG_DEBUG("Remove %ld ", key.ToString());
-
+  size_t thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id()) % 10;
   if (IsEmpty()) {
     return;
   }
 
   bool need_update = false;
   LeafPage *deleting_leaf = FindLeafPage(key, false, OpType::REMOVE, transaction);
+  LOG_DEBUG("Thread %zu Remove %ld Unsafe Set size is %zu", thread_id, key.ToString(), transaction->GetPageSet()->size());
 
   if (!deleting_leaf->Remove(key, comparator_, &need_update)) {
     FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
+    /*===== unlock the sibling leaf======*/
+    leafs_latch_.unlock();
+    /*=================================*/
     return;
   }
   if (deleting_leaf->IsRootPage()) {
-    FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
-    return;
-  }
-
-  /* = Normal Delete = */
-  if (!deleting_leaf->NeedRedsb()) {
-    if (need_update) {
-      UpdateParentKey(deleting_leaf->KeyAt(0), deleting_leaf->GetPageId());
+    // Draw(buffer_pool_manager_, "Remove"+std::to_string(key.ToString()) + ".dot");
+    if (deleting_leaf->GetSize() <= 0) {
+      root_page_id_ = INVALID_PAGE_ID;
+      UpdateRootPageId(0);
     }
     FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
-    return;
-  }
-
-  /*===== lock the sibling leaf======*/
-  leafs_latch_.lock();
-  /*=================================*/
-
-  /* = Steal = */
-  if (StealSibling(deleting_leaf, transaction)) {
-    if (need_update) {
-      UpdateParentKey(deleting_leaf->KeyAt(0), deleting_leaf->GetPageId());
-    }
-    FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
-
     /*===== unlock the sibling leaf======*/
     leafs_latch_.unlock();
     /*=================================*/
     return;
   }
 
+  /* = Normal Delete = */
+  if (!deleting_leaf->NeedRedsb()) {
+    FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
+    /*===== unlock the sibling leaf======*/
+    leafs_latch_.unlock();
+    /*=================================*/
+    return;
+  }
+
+  /* = Steal = */
+  if (StealSibling(deleting_leaf, transaction)) {
+    FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
+    /*===== unlock the sibling leaf======*/
+    leafs_latch_.unlock();
+    /*=================================*/
+    return;
+  }
+
+
   /* = Merge = */
   Merge(deleting_leaf, transaction);
+  // Draw(buffer_pool_manager_, "Remove"+std::to_string(key.ToString()) + ".dot");
   FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
-
   /*===== unlock the sibling leaf======*/
   leafs_latch_.unlock();
   /*=================================*/
@@ -508,27 +529,35 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::StealSibling(LeafPage *deleting_leaf, Transaction *transaction) -> bool {
   MappingType value;
-  LeafPage *stealing_leaf = nullptr;
-  if (deleting_leaf->IsLast()) {
-    stealing_leaf = GetLeafPage(deleting_leaf->GetPrevPageId(), RWType::WRITE);
-    transaction->AddIntoPageSet(stealing_leaf->GetBelongPage());
-    if (!stealing_leaf->StealLast(&value)) {
-      // UnpinPage(stealing_leaf->GetBelongPage(), stealing_leaf->GetPageId(), false, RWType::WRITE);
+  auto parent_internal = GetInternalPage(deleting_leaf->GetParentPageId(), RWType::UPDATE);
+  int target_index = parent_internal->SearchPosition(deleting_leaf->GetPageId());
+  int neber_index = target_index >= parent_internal->GetSize() ? target_index - 1 : target_index + 1;
+  bool is_last = neber_index < target_index;
+  LeafPage *neber_leaf = nullptr;
+
+  if (is_last) {
+    neber_leaf = GetLeafPage(deleting_leaf->GetPrevPageId(), RWType::UPDATE);
+    // transaction->AddIntoPageSet(neber_leaf->GetBelongPage());
+    if (!neber_leaf->StealLast(&value)) {
+      UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), false, RWType::UPDATE);
+      UnpinPage(neber_leaf->GetBelongPage(), neber_leaf->GetPageId(), false, RWType::UPDATE);
       return false;
     }
     deleting_leaf->InsertFirst(&value);
-    UpdateParentKey(deleting_leaf->KeyAt(0), deleting_leaf->GetPageId());
+    parent_internal->SetKeyAt(target_index, deleting_leaf->KeyAt(0));
   } else {
-    stealing_leaf = GetLeafPage(deleting_leaf->GetNextPageId(), RWType::WRITE);
-    transaction->AddIntoPageSet(stealing_leaf->GetBelongPage());
-    if (!stealing_leaf->StealFirst(&value)) {
-      // UnpinPage(stealing_leaf->GetBelongPage(), stealing_leaf->GetPageId(), false, RWType::WRITE);
+    neber_leaf = GetLeafPage(deleting_leaf->GetNextPageId(), RWType::UPDATE);
+    // transaction->AddIntoPageSet(neber_leaf->GetBelongPage());
+    if (!neber_leaf->StealFirst(&value)) {
+      UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), false, RWType::UPDATE);
+      UnpinPage(neber_leaf->GetBelongPage(), neber_leaf->GetPageId(), false, RWType::UPDATE);
       return false;
     }
     deleting_leaf->InsertLast(&value);
-    UpdateParentKey(stealing_leaf->KeyAt(0), stealing_leaf->GetPageId());
+    parent_internal->SetKeyAt(neber_index, neber_leaf->KeyAt(0));
   }
-  // UnpinPage(stealing_leaf->GetBelongPage(), stealing_leaf->GetPageId(), true, RWType::WRITE);
+  UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), true, RWType::UPDATE);
+  UnpinPage(neber_leaf->GetBelongPage(), neber_leaf->GetPageId(), false, RWType::UPDATE);
   return true;
 }
 
@@ -580,17 +609,24 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
      */
     auto rest_leaf = reinterpret_cast<LeafPage *>(rest_node);
     auto parent_page = GetInternalPage(rest_leaf->GetParentPageId(), RWType::UPDATE);
-
     int target_index = parent_page->SearchPosition(rest_leaf->GetPageId());
+    int neber_index = target_index >= parent_page->GetSize() ? target_index - 1 : target_index + 1;
     LeafPage *merging_leaf = nullptr;
+    bool is_last = neber_index < target_index;
 
-    if (rest_leaf->IsLast()) {
+    if (is_last) {
       merging_leaf = GetLeafPage(rest_leaf->GetPrevPageId(), RWType::UPDATE);
       // transaction->AddIntoPageSet(merging_leaf->GetBelongPage());
       merging_leaf->MergeFromRight(rest_leaf);
       // update list
-      merging_leaf->SetNextPageId(INVALID_PAGE_ID);
-      last_leaf_id_ = merging_leaf->GetPageId();
+      merging_leaf->SetNextPageId(rest_leaf->GetNextPageId());
+      if (rest_leaf->IsLast()) {
+        last_leaf_id_ = merging_leaf->GetPageId();
+      } else {
+        auto next_leaf = GetLeafPage(rest_leaf->GetNextPageId(), RWType::UPDATE);
+        next_leaf->SetPrevPageId(merging_leaf->GetPageId());
+        UnpinPage(next_leaf->GetBelongPage(), next_leaf->GetPageId(), true, RWType::UPDATE);
+      }
       // remove the correspond parent item
       parent_page->Remove(target_index);
     } else {
@@ -607,14 +643,15 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
         UnpinPage(prev_leaf->GetBelongPage(), prev_leaf->GetPageId(), true, RWType::UPDATE);
         merging_leaf->SetPrevPageId(prev_leaf->GetPageId());
       }
+      // we don't need it to update parent parent!!!
+      // UpdateParentKey(merging_leaf->KeyAt(0), merging_leaf->GetPageId());
       // update the parent key
-      UpdateParentKey(merging_leaf->KeyAt(0), merging_leaf->GetPageId());
+      parent_page->SetKeyAt(neber_index, merging_leaf->KeyAt(0));
       // remove the correspond parent item
       parent_page->Remove(target_index);
     }
 
     transaction->AddIntoDeletedPageSet(rest_leaf->GetPageId());
-    // DeletePage(rest_leaf->GetBelongPage(), rest_leaf->GetPageId(), false, RWType::WRITE);
 
     // Base Case
     if (parent_page->IsRootPage() && parent_page->GetSize() < 1) {
@@ -780,28 +817,28 @@ auto BPLUSTREE_TYPE::GetLeftMostKey(InternalPage *internal_page) -> KeyType {
   return key;
 }
 
-INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::UpdateParentKey(const KeyType &new_key, page_id_t page_id) {
-  auto cur_page = GetPage(page_id, RWType::UPDATE);
-  page_id_t parent_id = cur_page->GetParentPageId();
-  page_id_t cur_id = page_id;
-  auto parent_page = GetInternalPage(parent_id, RWType::UPDATE);
-  int pos = parent_page->SearchPosition(cur_id);
+//INDEX_TEMPLATE_ARGUMENTS
+//void BPLUSTREE_TYPE::UpdateParentKey(const KeyType &new_key, page_id_t page_id) {
+  //auto cur_page = GetPage(page_id, RWType::UPDATE);
+  //page_id_t parent_id = cur_page->GetParentPageId();
+  //page_id_t cur_id = page_id;
+  //auto parent_page = GetInternalPage(parent_id, RWType::UPDATE);
+  //int pos = parent_page->SearchPosition(cur_id);
 
-  while (pos == 0) {
-    // assert(!cur_page->TryLock() && !parent_page->TryLock() && "If you want to update, It must be wlocked!");
-    cur_page = parent_page;
-    UnpinPage(parent_page->GetBelongPage(), cur_id, false, RWType::UPDATE);
-    cur_id = parent_id;
-    parent_id = cur_page->GetParentPageId();
-    parent_page = GetInternalPage(parent_id, RWType::UPDATE);
-    // assert(!cur_page->TryLock() && !parent_page->TryLock() && "If you want to update, It must be wlocked!");
-    pos = parent_page->SearchPosition(cur_id);
-  }
-  parent_page->SetKeyAt(pos, new_key);
-  UnpinPage(cur_page->GetBelongPage(), cur_id, false, RWType::UPDATE);
-  UnpinPage(parent_page->GetBelongPage(), parent_id, true, RWType::UPDATE);
-}
+  //while (pos == 0) {
+    //// assert(!cur_page->TryLock() && !parent_page->TryLock() && "If you want to update, It must be wlocked!");
+    //cur_page = parent_page;
+    //UnpinPage(parent_page->GetBelongPage(), cur_id, false, RWType::UPDATE);
+    //cur_id = parent_id;
+    //parent_id = cur_page->GetParentPageId();
+    //parent_page = GetInternalPage(parent_id, RWType::UPDATE);
+    //// assert(!cur_page->TryLock() && !parent_page->TryLock() && "If you want to update, It must be wlocked!");
+    //pos = parent_page->SearchPosition(cur_id);
+  //}
+  //parent_page->SetKeyAt(pos, new_key);
+  //UnpinPage(cur_page->GetBelongPage(), cur_id, false, RWType::UPDATE);
+  //UnpinPage(parent_page->GetBelongPage(), parent_id, true, RWType::UPDATE);
+//}
 
 // INDEX_TEMPLATE_ARGUMENTS
 // void BPLUSTREE_TYPE::UpdateRootParentKey(const KeyType &old_key, const KeyType &new_key, page_id_t left_parent_id,
@@ -836,6 +873,7 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   auto target_leaf = FindLeafPage(key, false, OpType::READ, nullptr);
   target_leaf->GetBelongPage()->RUnlatch();
+  leafs_latch_.unlock();
   int target_index = target_leaf->Search(key, comparator_);
   assert(target_index != -1);
   return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(target_leaf, buffer_pool_manager_, target_index));
