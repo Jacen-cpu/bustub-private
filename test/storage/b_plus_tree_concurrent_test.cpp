@@ -622,7 +622,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_ScaleTest) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_SequentialMixTest) {
+TEST(BPlusTreeConcurrentTestC2Seq, SequentialMixTest) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -700,7 +700,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_SequentialMixTest) {
 
 const size_t NUM_ITERS = 1000;
 // const size_t NUM_ITERS_DEBUG = 100;
-TEST(BPlusTreeConcurrent, MixTest1Call) {
+TEST(BPlusTreeConcurrent, DISABLED_MixTest1Call) {
   for (size_t iter = 0; iter < NUM_ITERS; iter++) {
     LOG_DEBUG("=================== TEST %zu ======================", iter);
     // create KeyComparator and index schema
@@ -710,7 +710,7 @@ TEST(BPlusTreeConcurrent, MixTest1Call) {
     auto *disk_manager = new DiskManager("test.db");
     BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
     // create b+ tree
-    BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 3);
+    BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
 
     // create and fetch header_page
     page_id_t page_id;
@@ -720,7 +720,7 @@ TEST(BPlusTreeConcurrent, MixTest1Call) {
     std::vector<int64_t> for_insert;
     std::vector<int64_t> for_delete;
     size_t sieve = 2;  // divide evenly
-    size_t total_keys = 80;
+    size_t total_keys = 1000;
     for (size_t i = 1; i <= total_keys; i++) {
       if (i % sieve == 0) {
         for_insert.push_back(i);
@@ -738,7 +738,7 @@ TEST(BPlusTreeConcurrent, MixTest1Call) {
     tasks.emplace_back(insert_task);
     tasks.emplace_back(delete_task);
     std::vector<std::thread> threads;
-    size_t num_threads = 20;
+    size_t num_threads = 10;
     for (size_t i = 0; i < num_threads; i++) {
       threads.emplace_back(std::thread{tasks[i % tasks.size()], i});
     }

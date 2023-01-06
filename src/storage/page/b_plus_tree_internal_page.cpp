@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cstring>
 #include <iostream>
 #include <sstream>
 
@@ -90,6 +91,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertLast(const MappingType *value) {
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {
+  array_[index].first = {0};
   std::copy(array_ + index + 1, array_ + GetSize() + 1, array_ + index);
   IncreaseSize(-1);
 }
@@ -99,25 +101,6 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::NeedRedsb() -> bool {
   assert(!IsRootPage());
   return GetSize() < (GetMaxSize() + 1) / 2 - 1;
 }
-
-// INDEX_TEMPLATE_ARGUMENTS
-// void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MergeFromLeft(InternalPage * rest_page) {
-// auto size = rest_page->GetSize();
-// auto rest_array = rest_page->GetArray();
-
-// std::copy(array_, array_ + GetSize() + 1, array_ + size + 1);
-// std::copy(rest_array, rest_array + size, array_);
-// IncreaseSize(size);
-// }
-
-// INDEX_TEMPLATE_ARGUMENTS
-// void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MergeFromRight(InternalPage * rest_page) {
-// auto size = rest_page->GetSize();
-// auto rest_array = rest_page->GetArray();
-
-// std::copy(rest_array, rest_array + size, array_ + GetSize());
-// IncreaseSize(size);
-// }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealFirst(MappingType *value) -> bool {
@@ -169,22 +152,6 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Search(const KeyType &key, const KeyCompara
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SearchPosition(page_id_t page_id) const -> int {
-  // int left = 0;
-  // int right = GetSize();
-
-  // while (left <= right) {
-    // int mid = (left + right) / 2;
-    // if (array_[mid].second == page_id) {
-      // return mid;
-    // }
-    // if (array_[mid].second < page_id) {
-      // left = mid + 1;
-    // } else {
-      // right = mid - 1;
-    // }
-  // }
-
-  // return -1;
   for (int i = 0; i <= GetSize(); ++i) {
     if (array_[i].second == page_id) {
       return i;

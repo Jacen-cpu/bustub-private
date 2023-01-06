@@ -513,9 +513,9 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   Merge(deleting_leaf, transaction);
   // Draw(buffer_pool_manager_, "Remove"+std::to_string(key.ToString()) + ".dot");
   FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
-  /*===== unlock the sibling leaf======*/
-  leafs_latch_.unlock();
-  /*=================================*/
+  // /*===== unlock the sibling leaf======*/
+  // leafs_latch_.unlock();
+  // /*=================================*/
 }
 
 /**
@@ -528,6 +528,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::StealSibling(LeafPage *deleting_leaf, Transaction *transaction) -> bool {
+  LOG_DEBUG("Start Steal Sibling");
   MappingType value;
   auto parent_internal = GetInternalPage(deleting_leaf->GetParentPageId(), RWType::UPDATE);
   int target_index = parent_internal->SearchPosition(deleting_leaf->GetPageId());
@@ -541,6 +542,7 @@ auto BPLUSTREE_TYPE::StealSibling(LeafPage *deleting_leaf, Transaction *transact
     if (!neber_leaf->StealLast(&value)) {
       UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), false, RWType::UPDATE);
       UnpinPage(neber_leaf->GetBelongPage(), neber_leaf->GetPageId(), false, RWType::UPDATE);
+      LOG_DEBUG("Steal Fail");
       return false;
     }
     deleting_leaf->InsertFirst(&value);
@@ -551,6 +553,7 @@ auto BPLUSTREE_TYPE::StealSibling(LeafPage *deleting_leaf, Transaction *transact
     if (!neber_leaf->StealFirst(&value)) {
       UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), false, RWType::UPDATE);
       UnpinPage(neber_leaf->GetBelongPage(), neber_leaf->GetPageId(), false, RWType::UPDATE);
+      LOG_DEBUG("Steal Fail");
       return false;
     }
     deleting_leaf->InsertLast(&value);
@@ -558,6 +561,7 @@ auto BPLUSTREE_TYPE::StealSibling(LeafPage *deleting_leaf, Transaction *transact
   }
   UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), true, RWType::UPDATE);
   UnpinPage(neber_leaf->GetBelongPage(), neber_leaf->GetPageId(), true, RWType::UPDATE);
+  LOG_DEBUG("Steal Success");
   return true;
 }
 
@@ -607,6 +611,8 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
     /* == Redistribute the leaf page ==
      * Two case: rest node is the last one or not.
      */
+    
+    LOG_DEBUG("Start Merge leaf");
     auto rest_leaf = reinterpret_cast<LeafPage *>(rest_node);
     auto parent_page = GetInternalPage(rest_leaf->GetParentPageId(), RWType::UPDATE);
     int target_index = parent_page->SearchPosition(rest_leaf->GetPageId());
@@ -614,6 +620,7 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
     LeafPage *merging_leaf = nullptr;
     bool is_last = neber_index < target_index;
 
+    LOG_DEBUG("Get The naber leaf");
     if (is_last) {
       merging_leaf = GetLeafPage(rest_leaf->GetPrevPageId(), RWType::UPDATE);
       // transaction->AddIntoPageSet(merging_leaf->GetBelongPage());
@@ -652,6 +659,7 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
     }
 
     transaction->AddIntoDeletedPageSet(rest_leaf->GetPageId());
+    leafs_latch_.unlock();
 
     // Base Case
     if (parent_page->IsRootPage() && parent_page->GetSize() < 1) {
@@ -682,19 +690,22 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
      * update the parent key to the left most key of subtree.
      */
     // Here are some neccessy variable
+    LOG_DEBUG("Start Merge Internal");
     auto deleting_internal = reinterpret_cast<InternalPage *>(rest_node);
     auto parent_internal = GetInternalPage(deleting_internal->GetParentPageId(), RWType::UPDATE);
     int target_index = parent_internal->SearchPosition(deleting_internal->GetPageId());
     int neber_index = target_index == parent_internal->GetSize() ? target_index - 1 : target_index + 1;
-    auto neber_internal = GetInternalPage(parent_internal->ValueAt(neber_index), RWType::UPDATE);
+    auto neber_internal = GetInternalPage(parent_internal->ValueAt(neber_index), RWType::WRITE);
 
     bool is_last = neber_index < target_index;
+    LOG_DEBUG("Get The naber Internal");
+    transaction->AddIntoPageSet(neber_internal->GetBelongPage());
 
     /* = Steal = */
     if (StealInternal(deleting_internal, parent_internal, neber_internal, target_index, is_last)) {
       // UnpinPage(deleting_internal->GetBelongPage(), deleting_internal->GetPageId(), true, RWType::WRITE);
       UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), true, RWType::UPDATE);
-      UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::UPDATE);
+      // UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::WRITE);
       return;
     }
     /* = Merge = */
@@ -709,7 +720,7 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
       int neber_size = neber_internal->GetSize();
       for (int i = 0; i < deleting_internal->GetSize() + 1; ++i) {
         auto mapp_elem = deleting_arr[i];
-        UpdateParentId(mapp_elem.second, neber_internal->GetPageId());
+        UpdateParentId(mapp_elem.second, neber_internal->GetPageId()); // maybe bug
         neber_arr[i + neber_size + 1] = mapp_elem;
       }
       neber_internal->IncreaseSize(deleting_internal->GetSize() + 1);
@@ -744,55 +755,21 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
       UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), true, RWType::UPDATE);
       transaction->AddIntoDeletedPageSet(parent_internal->GetPageId());
       root_page_id_ = neber_internal->GetPageId();
-      UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::UPDATE);
+      // UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::WRITE);
       UpdateRootPageId(0);
       return;
     }
 
     if (!parent_internal->IsRootPage() && parent_internal->NeedRedsb()) {
-      UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::UPDATE);
+      // UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::WRITE);
       Merge(parent_internal, transaction);
       UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), true, RWType::UPDATE);
     } else {
-      UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::UPDATE);
+      // UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::WRITE);
       UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), true, RWType::UPDATE);
     }
   }
 }
-
-// /**
-// * @brief
-// *
-// * @return LeafPage*
-// */
-// INDEX_TEMPLATE_ARGUMENTS
-// auto BPLUSTREE_TYPE::GetFirstLeaf() -> LeafPage * {
-// BPlusTreePage *cur_page = GetInternalPage(root_page_id_, RWType::UPDATE);
-// while (!cur_page->IsLeafPage()) {
-// auto internal = reinterpret_cast<InternalPage *>(cur_page);
-// cur_page = GetPage(internal->ValueAt(0), RWType::UPDATE);
-// UnpinPage(internal->GetBelongPage(), internal->GetPageId(), false, RWType::UPDATE);
-// }
-// auto leaf = reinterpret_cast<LeafPage *>(cur_page);
-// assert(leaf->IsFirst());
-// return leaf;
-// }
-
-// /**
-// * @brief
-// *
-// * @return LeafPage*
-// */
-// INDEX_TEMPLATE_ARGUMENTS
-// auto BPLUSTREE_TYPE::GetLastLeaf() -> LeafPage * {
-// BPlusTreePage *cur_page = GetInternalPage(root_page_id_, RWType::UPDATE);
-// while (!cur_page->IsLeafPage()) {
-// auto internal = reinterpret_cast<InternalPage *>(cur_page);
-// cur_page = GetPage(internal->ValueAt(cur_page->GetSize()), RWType::UPDATE);
-// UnpinPage(internal->GetBelongPage(), internal->GetPageId(), false, RWType::UPDATE);
-// }
-// return reinterpret_cast<LeafPage *>(cur_page);
-// }
 
 /**
  * @brief
@@ -816,38 +793,6 @@ auto BPLUSTREE_TYPE::GetLeftMostKey(InternalPage *internal_page) -> KeyType {
 
   return key;
 }
-
-//INDEX_TEMPLATE_ARGUMENTS
-//void BPLUSTREE_TYPE::UpdateParentKey(const KeyType &new_key, page_id_t page_id) {
-  //auto cur_page = GetPage(page_id, RWType::UPDATE);
-  //page_id_t parent_id = cur_page->GetParentPageId();
-  //page_id_t cur_id = page_id;
-  //auto parent_page = GetInternalPage(parent_id, RWType::UPDATE);
-  //int pos = parent_page->SearchPosition(cur_id);
-  //while (pos == 0) {
-    //// assert(!cur_page->TryLock() && !parent_page->TryLock() && "If you want to update, It must be wlocked!");
-    //cur_page = parent_page;
-    //UnpinPage(parent_page->GetBelongPage(), cur_id, false, RWType::UPDATE);
-    //cur_id = parent_id;
-    //parent_id = cur_page->GetParentPageId();
-    //parent_page = GetInternalPage(parent_id, RWType::UPDATE);
-    //// assert(!cur_page->TryLock() && !parent_page->TryLock() && "If you want to update, It must be wlocked!");
-    //pos = parent_page->SearchPosition(cur_id);
-  //}
-  //parent_page->SetKeyAt(pos, new_key);
-  //UnpinPage(cur_page->GetBelongPage(), cur_id, false, RWType::UPDATE);
-  //UnpinPage(parent_page->GetBelongPage(), parent_id, true, RWType::UPDATE);
-//}
-
-// INDEX_TEMPLATE_ARGUMENTS
-// void BPLUSTREE_TYPE::UpdateRootParentKey(const KeyType &old_key, const KeyType &new_key, page_id_t left_parent_id,
-// page_id_t right_parent_id) { while (left_parent_id != right_parent_id) { auto left_node =
-// GetInternalPage(left_parent_id); auto right_node = GetInternalPage(right_parent_id); left_parent_id =
-// left_node->GetParentPageId(); right_parent_id = right_node->GetParentPageId(); UnpinPage(left_node->GetPageId(),
-// false); UnpinPage(right_node->GetPageId(), false);
-// }
-// UpdateParentKey(new_key, left_parent_id);
-// }
 
 /*****************************************************************************
  * INDEX ITERATOR
