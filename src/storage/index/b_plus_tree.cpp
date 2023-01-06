@@ -54,7 +54,7 @@ auto BPLUSTREE_TYPE::GetPage(page_id_t page_id, RWType rw) -> BPlusTreePage * {
   Page *page = buffer_pool_manager_->FetchPage(page_id);
   rw == RWType::READ ? page->RLatch() : rw == RWType::WRITE ? page->WLatch() : void(0);
   auto b_tree_page = reinterpret_cast<BPlusTreePage *>(page->GetData());
-  rw != RWType::UPDATE ? b_tree_page->SetBelongPage(page) : void(0);
+  b_tree_page->SetBelongPage(page);
   return b_tree_page;
 }
 
@@ -557,7 +557,7 @@ auto BPLUSTREE_TYPE::StealSibling(LeafPage *deleting_leaf, Transaction *transact
     parent_internal->SetKeyAt(neber_index, neber_leaf->KeyAt(0));
   }
   UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), true, RWType::UPDATE);
-  UnpinPage(neber_leaf->GetBelongPage(), neber_leaf->GetPageId(), false, RWType::UPDATE);
+  UnpinPage(neber_leaf->GetBelongPage(), neber_leaf->GetPageId(), true, RWType::UPDATE);
   return true;
 }
 
@@ -656,11 +656,11 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
     // Base Case
     if (parent_page->IsRootPage() && parent_page->GetSize() < 1) {
       merging_leaf->SetParentPageId(INVALID_PAGE_ID);
-      UnpinPage(parent_page->GetBelongPage(), root_page_id_, false, RWType::UPDATE);
+      UnpinPage(parent_page->GetBelongPage(), root_page_id_, true, RWType::UPDATE);
       transaction->AddIntoDeletedPageSet(root_page_id_);
       root_page_id_ = merging_leaf->GetPageId();
       UpdateRootPageId(0);
-      UnpinPage(merging_leaf->GetBelongPage(), merging_leaf->GetPageId(), false, RWType::UPDATE);
+      UnpinPage(merging_leaf->GetBelongPage(), merging_leaf->GetPageId(), true, RWType::UPDATE);
       return;
     }
 
@@ -741,7 +741,7 @@ void BPLUSTREE_TYPE::Merge(BPlusTreePage *rest_node, Transaction *transaction) {
     // Base Case
     if (parent_internal->IsRootPage() && parent_internal->GetSize() < 1) {
       neber_internal->SetParentPageId(INVALID_PAGE_ID);
-      UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), false, RWType::UPDATE);
+      UnpinPage(parent_internal->GetBelongPage(), parent_internal->GetPageId(), true, RWType::UPDATE);
       transaction->AddIntoDeletedPageSet(parent_internal->GetPageId());
       root_page_id_ = neber_internal->GetPageId();
       UnpinPage(neber_internal->GetBelongPage(), neber_internal->GetPageId(), true, RWType::UPDATE);
@@ -824,7 +824,6 @@ auto BPLUSTREE_TYPE::GetLeftMostKey(InternalPage *internal_page) -> KeyType {
   //page_id_t cur_id = page_id;
   //auto parent_page = GetInternalPage(parent_id, RWType::UPDATE);
   //int pos = parent_page->SearchPosition(cur_id);
-
   //while (pos == 0) {
     //// assert(!cur_page->TryLock() && !parent_page->TryLock() && "If you want to update, It must be wlocked!");
     //cur_page = parent_page;
