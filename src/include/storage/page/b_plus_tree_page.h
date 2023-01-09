@@ -77,6 +77,8 @@ class BPlusTreePage {
   auto IsSafe(OpType op) -> bool;
   inline auto IsCurRoot() -> bool { return is_cur_root_; };
   inline void SetIsCurRoot(bool is_cur_root) { is_cur_root_ = is_cur_root; }
+  // inline auto IsDeleted() -> bool { return is_deleted_; };
+  // inline void SetIsDeleted(bool is_deleted) { is_deleted_ = is_deleted; }
 
  private:
   // member variable, attributes that both internal and leaf page share
@@ -88,6 +90,7 @@ class BPlusTreePage {
   page_id_t page_id_ __attribute__((__unused__));
   Page *page_;
   bool is_cur_root_ = false;
+  // bool is_deleted_ = false;
 };
 
 }  // namespace bustub

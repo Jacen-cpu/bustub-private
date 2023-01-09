@@ -64,15 +64,15 @@ void BPlusTreePage::SetLSN(lsn_t lsn) { lsn_ = lsn; }
  * Helper methods to check safe
  */
 auto BPlusTreePage::IsSafe(OpType op) -> bool {
-  int pred_size = size_ + 1;
+  // int pred_size = size_ + 1;
   if (op == OpType::INSERT) {
-    return pred_size < max_size_;
+    return size_ + 1 < max_size_;
   }
   // leaf: GetSize() < GetMaxSize() / 2
   // internal: GetSize() < (GetMaxSize() + 1) / 2 - 1;
-  pred_size = size_ - 1;
+  // pred_size = size_ - 1;
   if (op == OpType::REMOVE) {
-    return IsLeafPage() ? !(pred_size < max_size_ / 2) : !(pred_size < (max_size_ + 1) / 2 - 1);
+    return IsLeafPage() ? !(size_ - 1 < max_size_ / 2) : !(size_ - 1 < (max_size_ + 1) / 2 - 1);
   }
   assert(false);
 }

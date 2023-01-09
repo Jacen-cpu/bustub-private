@@ -37,7 +37,6 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {
   SetPageId(page_id);
   SetParentPageId(parent_id);
-  SetPrevPageId(INVALID_PAGE_ID);
   SetNextPageId(INVALID_PAGE_ID);
   SetMaxSize(max_size);
   SetPageType(IndexPageType::LEAF_PAGE);
@@ -51,15 +50,6 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetNextPageId() const -> page_id_t { return nex
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { next_page_id_ = next_page_id; }
-
-/**
- * Helper methods to set/get next page id
- */
-INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetPrevPageId() const -> page_id_t { return prev_page_id_; }
-
-INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::SetPrevPageId(page_id_t prev_page_id) { prev_page_id_ = prev_page_id; }
 
 /*
  * Helper method to find and return the key associated with input "index"(a.k.a
@@ -162,27 +152,28 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::StealLast(MappingType *value) -> bool {
  */
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator &comparator, bool *need_update)
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator &comparator)
     -> bool {
   int index = Search(key, comparator);
   if (index == -1) {
     return false;
   }
 
-  /* check if we need to update the parent key*/
-  if (index == 0) {
-    *need_update = true;
+  // /* check if we need to update the parent key*/
+  // if (index == 0) {
+    // *need_update = true;
+  // }
+  if (index < GetSize() - 1) {
+    std::copy(array_ + index + 1, array_ + GetSize(), array_ + index);
   }
-
-  std::copy(array_ + index + 1, array_ + GetSize(), array_ + index);
   IncreaseSize(-1);
-
   return true;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MergeFromLeft(LeafPage *rest_leaf) {
   auto size = rest_leaf->GetSize();
+  if (size == 0) { return; }
   auto rest_array = rest_leaf->GetArray();
 
   std::copy(array_, array_ + GetSize(), array_ + size);
@@ -191,12 +182,12 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MergeFromLeft(LeafPage *rest_leaf) {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::MergeFromRight(LeafPage *rest_leaf) {
-  auto size = rest_leaf->GetSize();
-  auto rest_array = rest_leaf->GetArray();
-
+void B_PLUS_TREE_LEAF_PAGE_TYPE::MergeFromRight(LeafPage *merging_leaf) {
+  auto size = merging_leaf->GetSize();
+  auto rest_array = merging_leaf->GetArray();
   std::copy(rest_array, rest_array + size, array_ + GetSize());
   IncreaseSize(size);
+  SetNextPageId(merging_leaf->GetNextPageId());
 }
 
 INDEX_TEMPLATE_ARGUMENTS

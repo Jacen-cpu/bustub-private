@@ -61,19 +61,17 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   auto Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> bool;
   void InsertFirst(const MappingType *value);
   void InsertLast(const MappingType *value);
-  auto Remove(const KeyType &key, const KeyComparator &comparator, bool *need_update) -> bool;
+  auto Remove(const KeyType &key, const KeyComparator &comparator) -> bool;
   auto StealFirst(MappingType *value) -> bool;
   auto StealLast(MappingType *value) -> bool;
   void MergeFromLeft(LeafPage *rest_leaf);
-  void MergeFromRight(LeafPage *rest_leaf);
+  void MergeFromRight(LeafPage *merging_leaf);
   inline auto IsLast() -> bool { return next_page_id_ == INVALID_PAGE_ID; }
-  inline auto IsFirst() -> bool { return prev_page_id_ == INVALID_PAGE_ID; }
   inline auto GetArray() -> MappingType * { return array_; }
   inline auto NeedRedsb() -> bool { return GetSize() < GetMaxSize() / 2; }
 
  private:
   page_id_t next_page_id_;
-  page_id_t prev_page_id_;
   // Flexible array member for page data.
   MappingType array_[1];
 };

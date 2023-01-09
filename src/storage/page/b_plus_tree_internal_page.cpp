@@ -12,8 +12,10 @@
 #include <cstring>
 #include <iostream>
 #include <sstream>
+#include <utility>
 
 #include "common/exception.h"
+#include "common/logger.h"
 #include "storage/page/b_plus_tree_internal_page.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
 #include "storage/page/b_plus_tree_page.h"
@@ -78,7 +80,10 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType 
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertFirst(const MappingType *value) {
-  std::copy(array_, array_ + GetSize() + 1, array_ + 1);
+  int size = GetSize();
+  for (int i = size; i >= 1; --i){
+    array_[i + 1] = array_[i];
+  }
   array_[0] = *value;
   IncreaseSize(1);
 }
@@ -91,8 +96,11 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertLast(const MappingType *value) {
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {
-  array_[index].first = {0};
-  std::copy(array_ + index + 1, array_ + GetSize() + 1, array_ + index);
+  // std::copy(array_ + index + 1, array_ + GetSize() + 1, array_ + index);
+  int size = GetSize();
+  for (int i = index; i < size; ++i){
+    array_[i] = array_[i + 1];
+  }
   IncreaseSize(-1);
 }
 
@@ -108,8 +116,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::StealFirst(MappingType *value) -> bool {
     return false;
   }
   *value = array_[0];
-  std::copy(array_ + 1, array_ + GetSize() + 1, array_);
-  IncreaseSize(-1);
+  Remove(0);
   return true;
 }
 

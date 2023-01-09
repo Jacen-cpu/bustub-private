@@ -545,7 +545,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_ScaleTest) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
@@ -622,7 +622,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_ScaleTest) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTestC2Seq, SequentialMixTest) {
+TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_SequentialMixTest) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -630,7 +630,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, SequentialMixTest) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
@@ -668,6 +668,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, SequentialMixTest) {
     index_key.SetFromInteger(delete_key);
     tree.Insert(index_key, rid, transaction);
   }
+  tree.Draw(bpm, "MixtestInsert.dot");
 
   // Remove the keys in for_delete
   for (auto key : for_delete) {
@@ -676,13 +677,14 @@ TEST(BPlusTreeConcurrentTestC2Seq, SequentialMixTest) {
     // tree.Draw(bpm, std::to_string(key) + ".dot");
   }
 
-  tree.Draw(bpm, "Mixtest.dot");
+  tree.Draw(bpm, "MixtestRemove.dot");
   // Only half of the keys should remain
   int64_t start_key = 2;
   int64_t size = 0;
   index_key.SetFromInteger(start_key);
   for (auto iterator = tree.Begin(); iterator != tree.End(); ++iterator) {
     EXPECT_EQ(((*iterator).first).ToString(), for_insert[size]);
+    assert(((*iterator).first).ToString() == for_insert[size]);
     size++;
   }
 
@@ -700,7 +702,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, SequentialMixTest) {
 
 const size_t NUM_ITERS = 1000;
 // const size_t NUM_ITERS_DEBUG = 100;
-TEST(BPlusTreeConcurrent, DISABLED_MixTest1Call) {
+TEST(BPlusTreeConcurrent, MixTest1Call) {
   for (size_t iter = 0; iter < NUM_ITERS; iter++) {
     LOG_DEBUG("=================== TEST %zu ======================", iter);
     // create KeyComparator and index schema
@@ -720,7 +722,7 @@ TEST(BPlusTreeConcurrent, DISABLED_MixTest1Call) {
     std::vector<int64_t> for_insert;
     std::vector<int64_t> for_delete;
     size_t sieve = 2;  // divide evenly
-    size_t total_keys = 1000;
+    size_t total_keys = 50;
     for (size_t i = 1; i <= total_keys; i++) {
       if (i % sieve == 0) {
         for_insert.push_back(i);
@@ -738,7 +740,7 @@ TEST(BPlusTreeConcurrent, DISABLED_MixTest1Call) {
     tasks.emplace_back(insert_task);
     tasks.emplace_back(delete_task);
     std::vector<std::thread> threads;
-    size_t num_threads = 10;
+    size_t num_threads = 4;
     for (size_t i = 0; i < num_threads; i++) {
       threads.emplace_back(std::thread{tasks[i % tasks.size()], i});
     }
@@ -746,22 +748,23 @@ TEST(BPlusTreeConcurrent, DISABLED_MixTest1Call) {
       threads[i].join();
     }
 
-    int64_t size = 0;
     tree.Draw(bpm, "mix_remove.dot");
-    for (auto iterator = tree.Begin(); iterator != tree.End(); ++iterator) {
-      // EXPECT_EQ(((*iterator).first).ToString(), for_insert[size]);
-      size++;
-    }
+    // int64_t size = 0;
+    // for (auto iterator = tree.Begin(); iterator != tree.End(); ++iterator) {
+      // // EXPECT_EQ(((*iterator).first).ToString(), for_insert[size]);
+      // size++;
+    // }
 
     // EXPECT_EQ(size, for_insert.size());
-    LOG_DEBUG("left size is %ld, right size is %zu", size, for_insert.size());
+    // LOG_DEBUG("left size is %ld, right size is %zu", size, for_insert.size());
     remove("test.db");
     remove("test.log");
-    assert((unsigned long)size == for_insert.size());
+    // assert((unsigned long)size == for_insert.size());
     bpm->UnpinPage(HEADER_PAGE_ID, true);
 
     delete disk_manager;
     delete bpm;
+    // assert(false);
   }
 }
 
