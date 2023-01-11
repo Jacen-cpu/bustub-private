@@ -144,6 +144,7 @@ auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool left_most, OpType op,
   auto curr_node_page = GetRootPage(op, transaction);
   if (op == OpType::READ) {
     root_latch_.unlock();
+    curr_node_page->SetIsCurRoot(false);
   }
   page_id_t next_page_id;
   while (!curr_node_page->IsLeafPage()) {
@@ -213,9 +214,13 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
   LOG_DEBUG("get the value of %ld ", key.ToString());
 
+  root_latch_.lock();
   if (IsEmpty()) {
+    root_latch_.unlock();
     return false;
   }
+  root_latch_.unlock();
+
   auto leaf_node_page = FindLeafPage(key, false, OpType::READ, transaction);
   int index = leaf_node_page->Search(key, comparator_);
   if (index != -1) {
