@@ -72,7 +72,7 @@ class BPlusTreePage {
   inline void SetBelongPage(Page *page) { page_ = page; }
 
   void SetLSN(lsn_t lsn = INVALID_LSN);
-  inline auto NeedSplit() -> bool { return size_ == max_size_; };
+  inline auto NeedSplit() -> bool { return size_ >= max_size_; };
 
   auto IsSafe(OpType op) -> bool;
   inline auto IsCurRoot() -> bool { return is_cur_root_; };

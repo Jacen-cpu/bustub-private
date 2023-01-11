@@ -61,20 +61,19 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType 
     return false;
   }
 
-  IncreaseSize(1);
 
-  int cur_size = GetSize();
+  int cur_size = GetSize() + 1;
   array_[cur_size] = std::make_pair(key, value);
 
-  int compare = 0;
   int j = cur_size;
-  while (j > 1 && (compare = comparator(KeyAt(j), KeyAt(j - 1))) == -1) {
+  while (j > 1 && comparator(KeyAt(j), KeyAt(j - 1)) == -1) {
     auto temp = array_[j];
     array_[j] = array_[j - 1];
     array_[j - 1] = temp;
     j--;
   }
 
+  IncreaseSize(1);
   return true;
 }
 
@@ -90,8 +89,8 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertFirst(const MappingType *value) {
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertLast(const MappingType *value) {
+  array_[GetSize() + 1] = *value;
   IncreaseSize(1);
-  array_[GetSize()] = *value;
 }
 
 INDEX_TEMPLATE_ARGUMENTS

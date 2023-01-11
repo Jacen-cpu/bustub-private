@@ -630,7 +630,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_SequentialMixTest) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
@@ -644,7 +644,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_SequentialMixTest) {
   std::vector<int64_t> for_insert;
   std::vector<int64_t> for_delete;
   size_t sieve = 2;  // divide evenly
-  size_t total_keys = 1000;
+  size_t total_keys = 100;
   for (size_t i = 1; i <= total_keys; i++) {
     if (i % sieve == 0) {
       for_insert.push_back(i);
@@ -674,7 +674,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_SequentialMixTest) {
   for (auto key : for_delete) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
-    // tree.Draw(bpm, std::to_string(key) + ".dot");
+    tree.Draw(bpm, std::to_string(key) + ".dot");
   }
 
   tree.Draw(bpm, "MixtestRemove.dot");
@@ -722,7 +722,7 @@ TEST(BPlusTreeConcurrent, MixTest1Call) {
     std::vector<int64_t> for_insert;
     std::vector<int64_t> for_delete;
     size_t sieve = 2;  // divide evenly
-    size_t total_keys = 50;
+    size_t total_keys = 1000;
     for (size_t i = 1; i <= total_keys; i++) {
       if (i % sieve == 0) {
         for_insert.push_back(i);
@@ -740,7 +740,7 @@ TEST(BPlusTreeConcurrent, MixTest1Call) {
     tasks.emplace_back(insert_task);
     tasks.emplace_back(delete_task);
     std::vector<std::thread> threads;
-    size_t num_threads = 4;
+    size_t num_threads = 10;
     for (size_t i = 0; i < num_threads; i++) {
       threads.emplace_back(std::thread{tasks[i % tasks.size()], i});
     }
@@ -749,17 +749,17 @@ TEST(BPlusTreeConcurrent, MixTest1Call) {
     }
 
     tree.Draw(bpm, "mix_remove.dot");
-    // int64_t size = 0;
-    // for (auto iterator = tree.Begin(); iterator != tree.End(); ++iterator) {
-      // // EXPECT_EQ(((*iterator).first).ToString(), for_insert[size]);
-      // size++;
-    // }
+    int64_t size = 0;
+    for (auto iterator = tree.Begin(); iterator != tree.End(); ++iterator) {
+      EXPECT_EQ(((*iterator).first).ToString(), for_insert[size]);
+      size++;
+    }
 
-    // EXPECT_EQ(size, for_insert.size());
-    // LOG_DEBUG("left size is %ld, right size is %zu", size, for_insert.size());
+    EXPECT_EQ(size, for_insert.size());
+    LOG_DEBUG("left size is %ld, right size is %zu", size, for_insert.size());
+    assert((unsigned long)size == for_insert.size());
     remove("test.db");
     remove("test.log");
-    // assert((unsigned long)size == for_insert.size());
     bpm->UnpinPage(HEADER_PAGE_ID, true);
 
     delete disk_manager;
