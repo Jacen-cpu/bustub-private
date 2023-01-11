@@ -755,7 +755,6 @@ TEST(BPlusTreeConcurrent, DISABLED_MixTest1Call) {
 
     EXPECT_EQ(size, for_insert.size());
     LOG_DEBUG("left size is %ld, right size is %zu", size, for_insert.size());
-    assert((unsigned long)size == for_insert.size());
     remove("test.db");
     remove("test.log");
     bpm->UnpinPage(HEADER_PAGE_ID, true);
