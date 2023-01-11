@@ -74,19 +74,12 @@ auto BPLUSTREE_TYPE::GetRootPage(OpType op, Transaction *transaction) -> BPlusTr
   RWType rw = op == OpType::READ ? RWType::READ : RWType::WRITE;
   root_latch_.lock();
   BPlusTreePage *root_page = GetPage(root_page_id_, rw);
-  // check root
-  // while (!root_page->IsRootPage()) {
-    // UnpinPage(root_page->GetBelongPage(), root_page->GetPageId(), true, rw);
-    // root_page = GetPage(root_page_id_, rw);
-  // }
+
   assert(root_page->IsRootPage());
   root_page->SetIsCurRoot(true);
   if (transaction != nullptr) {
     transaction->AddIntoPageSet(root_page->GetBelongPage());
   }
-  // if (op == OpType::READ) { root_latch_.unlock(); }
-  // if (op == OpType::REMOVE && root_page->GetSize() > 1) { root_latch_.unlock(); }
-  // if (op == OpType::INSERT && root_page->IsSafe(op)) { root_latch_.unlock(); }
 
   return root_page;
 }
@@ -260,13 +253,14 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   }
   root_latch_.unlock();
 
+  LOG_DEBUG("\033[1;32;40mThread %zu Insert %ld start find Leaf\033[0m",thread_id , key.ToString());
   auto leaf_node_page = FindLeafPage(key, false, OpType::INSERT, transaction);
   LOG_DEBUG("\033[1;32;40mThread %zu Insert %ld into Page %d Unsafe Set size is %zu\033[0m",thread_id , key.ToString(), leaf_node_page->GetPageId(), transaction->GetPageSet()->size());
   // check duplication
   if (!leaf_node_page->Insert(key, value, comparator_)) {
     // UnpinPage(leaf_node_page->GetBelongPage(), leaf_node_page->GetPageId(), false, RWType::WRITE);
     // Draw(buffer_pool_manager_, "Insert"+std::to_string(key.ToString()) + ".dot");
-    LOG_DEBUG("Insert Fail");
+    LOG_DEBUG("Insert Fail, Thread %zu start Free", thread_id);
     FreePage(leaf_node_page->GetPageId(), RWType::WRITE, transaction);
     return false;
   }
@@ -278,7 +272,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   // UnpinPage(leaf_node_page->GetBelongPage(), leaf_node_page->GetPageId(), false, RWType::WRITE);
   // Draw(buffer_pool_manager_, "Insert"+std::to_string(key.ToString()) + ".dot");
-  LOG_DEBUG("Insert Success");
+  LOG_DEBUG("Insert Success, Thread %zu start Free", thread_id);
   FreePage(leaf_node_page->GetPageId(), RWType::WRITE, transaction);
   return true;
 }
@@ -453,6 +447,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
 
   // Draw(buffer_pool_manager_, "Last");
   if (IsEmpty()) { return; }
+  LOG_DEBUG("\033[1;31;40mThread %zu Remove %ld start find Leaf\033[0m",thread_id , key.ToString());
   LeafPage *deleting_leaf = FindLeafPage(key, false, OpType::REMOVE, transaction);
   LOG_DEBUG("\033[1;31;40mThread %zu Remove %ld into Page %d, %d key in this page, Unsafe Set size is %zu\033[0m",thread_id , key.ToString(), deleting_leaf->GetPageId(), deleting_leaf->GetSize()
   ,transaction->GetPageSet()->size());
@@ -468,6 +463,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
         root_page_id_ = INVALID_PAGE_ID;
         UpdateRootPageId(0);
       }
+      LOG_DEBUG("Remove Thread %zu", thread_id);
       FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
       return;
     }
@@ -497,6 +493,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   } else {
     LOG_DEBUG("\033[1;31;40mRemove Fail!\033[0m");
   }
+  LOG_DEBUG("Remove Thread %zu", thread_id);
   FreePage(deleting_leaf->GetPageId(), RWType::WRITE, transaction);
 }
 
@@ -535,6 +532,11 @@ auto BPLUSTREE_TYPE::StealSibling(LeafPage *deleting_leaf, InternalPage *parent_
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::StealInternal(InternalPage *deleting_internal, InternalPage *parent_internal,
                                    InternalPage *neber_internal, int target_index, bool is_last) -> bool {
+
+  // for (int i = 0; i <= deleting_internal->GetSize(); ++i) {
+    // LOG_DEBUG("Before Steal The rest internal key has %ld, value is %d", deleting_internal->KeyAt(i).ToString(), deleting_internal->ValueAt(i));
+  // }
+
   std::pair<KeyType, page_id_t> value;
   if (!(is_last 
       ? neber_internal->StealLast(&value)
@@ -552,6 +554,11 @@ auto BPLUSTREE_TYPE::StealInternal(InternalPage *deleting_internal, InternalPage
     // Update the parent page key
     parent_internal->SetKeyAt(target_index + 1, neber_internal->KeyAt(0));
   }
+
+  // for (int i = 0; i <= deleting_internal->GetSize(); ++i) {
+    // LOG_DEBUG("After Steal The rest internal key has %ld, value is %d", deleting_internal->KeyAt(i).ToString(), deleting_internal->ValueAt(i));
+  // }
+
   UpdateParentId(value.second, deleting_internal->GetPageId());
   return true;
 }

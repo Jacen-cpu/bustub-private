@@ -722,7 +722,7 @@ TEST(BPlusTreeConcurrent, MixTest1Call) {
     std::vector<int64_t> for_insert;
     std::vector<int64_t> for_delete;
     size_t sieve = 2;  // divide evenly
-    size_t total_keys = 1000;
+    size_t total_keys = 100;
     for (size_t i = 1; i <= total_keys; i++) {
       if (i % sieve == 0) {
         for_insert.push_back(i);

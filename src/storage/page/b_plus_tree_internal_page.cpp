@@ -80,7 +80,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertFirst(const MappingType *value) {
   int size = GetSize();
-  for (int i = size; i >= 1; --i){
+  for (int i = size; i >= 0; --i){
     array_[i + 1] = array_[i];
   }
   array_[0] = *value;

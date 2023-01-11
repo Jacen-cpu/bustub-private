@@ -57,7 +57,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
     target->page_id_ = new_page_id;
     target->is_dirty_ = false;
     target->pin_count_ = 1;
-    memset(target->data_, 0, BUSTUB_PAGE_SIZE);
+    target->ResetMemory();
     page_table_->Insert(new_page_id, target_frame);
 
     replacer_->RecordAccess(target_frame);
@@ -80,7 +80,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
     target->page_id_ = new_page_id;
     target->is_dirty_ = false;
     target->pin_count_ = 1;
-    memset(target->data_, 0, BUSTUB_PAGE_SIZE);
+    target->ResetMemory();
     page_table_->Insert(new_page_id, target_frame);
 
     replacer_->RecordAccess(target_frame);
@@ -212,7 +212,7 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   } else {
     return true;
   }
-
+  
   page_table_->Remove(page_id);
   replacer_->Remove(target_frame);
   free_list_.push_back(target_frame);
@@ -225,6 +225,7 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
 auto BufferPoolManagerInstance::AllocatePage() -> page_id_t { return next_page_id_++; }
 
 void BufferPoolManagerInstance::ResetPage(Page *page) {
+  page->ResetMemory();
   page->page_id_ = INVALID_PAGE_ID;
   page->is_dirty_ = false;
   page->pin_count_ = 0;
