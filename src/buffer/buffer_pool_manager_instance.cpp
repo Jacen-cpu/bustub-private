@@ -212,7 +212,7 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   } else {
     return true;
   }
-  
+
   page_table_->Remove(page_id);
   replacer_->Remove(target_frame);
   free_list_.push_back(target_frame);

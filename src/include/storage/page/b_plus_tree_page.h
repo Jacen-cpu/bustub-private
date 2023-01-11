@@ -68,17 +68,12 @@ class BPlusTreePage {
   auto GetPageId() const -> page_id_t;
   void SetPageId(page_id_t page_id);
 
-  inline auto GetBelongPage() const -> Page * { return page_; }
-  inline void SetBelongPage(Page *page) { page_ = page; }
-
   void SetLSN(lsn_t lsn = INVALID_LSN);
   inline auto NeedSplit() -> bool { return size_ >= max_size_; };
 
   auto IsSafe(OpType op) -> bool;
   inline auto IsCurRoot() -> bool { return is_cur_root_; };
   inline void SetIsCurRoot(bool is_cur_root) { is_cur_root_ = is_cur_root; }
-  // inline auto IsDeleted() -> bool { return is_deleted_; };
-  // inline void SetIsDeleted(bool is_deleted) { is_deleted_ = is_deleted; }
 
  private:
   // member variable, attributes that both internal and leaf page share
@@ -88,9 +83,7 @@ class BPlusTreePage {
   int max_size_ __attribute__((__unused__));
   page_id_t parent_page_id_ __attribute__((__unused__));
   page_id_t page_id_ __attribute__((__unused__));
-  Page *page_;
   bool is_cur_root_ = false;
-  // bool is_deleted_ = false;
 };
 
 }  // namespace bustub

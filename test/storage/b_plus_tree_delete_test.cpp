@@ -49,7 +49,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
   }
 
   tree.Draw(bpm, "origin_tree.dot");
-  
+
   // BUG Operation ?????
 
   // Remove 1
@@ -63,7 +63,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
   rid.Set(static_cast<int32_t>(key >> 32), value);
   index_key.SetFromInteger(key);
   tree.Insert(index_key, rid, transaction);
-  
+
   // Remove 3
 
   index_key.SetFromInteger(3);
@@ -73,38 +73,37 @@ TEST(BPlusTreeTests, DeleteTest1) {
 
   // std::vector<int64_t> remove_keys = {1, 5};
   // for (auto key : remove_keys) {
-    // index_key.SetFromInteger(key);
-    // tree.Draw(bpm, "delete" + std::to_string(key) + ".dot");
+  // index_key.SetFromInteger(key);
+  // tree.Draw(bpm, "delete" + std::to_string(key) + ".dot");
   // }
 
   // std::vector<RID> rids;
   // for (auto key : keys) {
-    // rids.clear();
-    // index_key.SetFromInteger(key);
-    // tree.GetValue(index_key, &rids);
-    // EXPECT_EQ(rids.size(), 1);
+  // rids.clear();
+  // index_key.SetFromInteger(key);
+  // tree.GetValue(index_key, &rids);
+  // EXPECT_EQ(rids.size(), 1);
 
-    // int64_t value = key & 0xFFFFFFFF;
-    // EXPECT_EQ(rids[0].GetSlotNum(), value);
+  // int64_t value = key & 0xFFFFFFFF;
+  // EXPECT_EQ(rids[0].GetSlotNum(), value);
   // }
-
 
   // int64_t size = 0;
   // bool is_present;
 
   // for (auto key : keys) {
-    // krids.clear();
-    // kindex_key.SetFromInteger(key);
-    // kis_present = tree.GetValue(index_key, &rids);
+  // krids.clear();
+  // kindex_key.SetFromInteger(key);
+  // kis_present = tree.GetValue(index_key, &rids);
 
-    // kif (!is_present) {
-      // kEXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
-    // k} else {
-      // kEXPECT_EQ(rids.size(), 1);
-      // kEXPECT_EQ(rids[0].GetPageId(), 0);
-      // kEXPECT_EQ(rids[0].GetSlotNum(), key);
-      // ksize = size + 1;
-    // k}
+  // kif (!is_present) {
+  // kEXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
+  // k} else {
+  // kEXPECT_EQ(rids.size(), 1);
+  // kEXPECT_EQ(rids[0].GetPageId(), 0);
+  // kEXPECT_EQ(rids[0].GetSlotNum(), key);
+  // ksize = size + 1;
+  // k}
   // k}
 
   // EXPECT_EQ(size, 8);

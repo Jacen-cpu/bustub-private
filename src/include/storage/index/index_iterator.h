@@ -46,7 +46,7 @@ class IndexIterator {
     return itr.leaf_->GetPageId() != leaf_->GetPageId() || itr.cur_pos_ != cur_pos_;
   }
 
-  auto GetPage() -> Page * { return leaf_->GetBelongPage(); }
+  // auto GetPage() -> Page * { return reinterpret_cast<Page *>(leaf_); }
 
  private:
   LeafPage *leaf_;

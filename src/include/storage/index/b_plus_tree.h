@@ -95,9 +95,8 @@ class BPlusTree {
 
   void SplitInternal(InternalPage *over_node, Transaction *transaction);
 
-
-  void MergeLeaf(LeafPage *rest_leaf, InternalPage *parent_internal, LeafPage *merging_leaf,
-                     int target_index, int neber_index, bool is_last, Transaction *transaction);
+  void MergeLeaf(LeafPage *rest_leaf, InternalPage *parent_internal, LeafPage *merging_leaf, int target_index,
+                 int neber_index, bool is_last, Transaction *transaction);
 
   void RedsbInternal(InternalPage *deleting_internal, Transaction *transaction);
 
@@ -108,8 +107,8 @@ class BPlusTree {
 
   auto StealSibling(LeafPage *deleting_leaf, Transaction *transaction) -> bool;
 
-  auto StealSibling(LeafPage *deleting_leaf, InternalPage *parent_internal, LeafPage *neber_leaf, 
-                     int target_index, int neber_index, bool is_last) -> bool;
+  auto StealSibling(LeafPage *deleting_leaf, InternalPage *parent_internal, LeafPage *neber_leaf, int target_index,
+                    int neber_index, bool is_last) -> bool;
 
   auto StealInternal(InternalPage *deleting_internal, InternalPage *parent_internal, InternalPage *neber_internal,
                      int target_index, bool is_last) -> bool;
@@ -153,7 +152,6 @@ class BPlusTree {
   page_id_t first_leaf_id_ = INVALID_PAGE_ID;
   page_id_t last_leaf_id_ = INVALID_PAGE_ID;
   std::mutex root_latch_;
-  std::mutex slibing_latch_;
 };
 
 }  // namespace bustub

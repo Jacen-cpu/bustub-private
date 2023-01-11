@@ -152,8 +152,7 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::StealLast(MappingType *value) -> bool {
  */
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator &comparator)
-    -> bool {
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator &comparator) -> bool {
   int index = Search(key, comparator);
   if (index == -1) {
     return false;
@@ -161,7 +160,7 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator 
 
   // /* check if we need to update the parent key*/
   // if (index == 0) {
-    // *need_update = true;
+  // *need_update = true;
   // }
   if (index < GetSize() - 1) {
     std::copy(array_ + index + 1, array_ + GetSize(), array_ + index);
@@ -173,7 +172,9 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MergeFromLeft(LeafPage *rest_leaf) {
   auto size = rest_leaf->GetSize();
-  if (size == 0) { return; }
+  if (size == 0) {
+    return;
+  }
   auto rest_array = rest_leaf->GetArray();
 
   std::copy(array_, array_ + GetSize(), array_ + size);

@@ -61,7 +61,6 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType 
     return false;
   }
 
-
   int cur_size = GetSize() + 1;
   array_[cur_size] = std::make_pair(key, value);
 
@@ -80,7 +79,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertFirst(const MappingType *value) {
   int size = GetSize();
-  for (int i = size; i >= 0; --i){
+  for (int i = size; i >= 0; --i) {
     array_[i + 1] = array_[i];
   }
   array_[0] = *value;
@@ -97,7 +96,7 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {
   // std::copy(array_ + index + 1, array_ + GetSize() + 1, array_ + index);
   int size = GetSize();
-  for (int i = index; i < size; ++i){
+  for (int i = index; i < size; ++i) {
     array_[i] = array_[i + 1];
   }
   IncreaseSize(-1);
