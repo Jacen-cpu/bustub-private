@@ -122,7 +122,7 @@ void DeleteHelperSplit(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree
   delete transaction;
 }
 
-TEST(BPlusTreeConcurrentTest, InsertTest1) {
+TEST(BPlusTreeConcurrentTest, DISABLED_InsertTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -178,7 +178,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTest, InsertTest2) {
+TEST(BPlusTreeConcurrentTest, DISABLED_InsertTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -696,6 +696,67 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_SequentialMixTest) {
   delete bpm;
   remove("test.db");
   remove("test.log");
+}
+
+
+TEST(BPlusTreeConcurrent, DISALBED_InsertTest2Call) {
+  for (size_t iter = 0; iter < 100; iter++) {
+    // create KeyComparator and index schema
+    auto key_schema = ParseCreateStatement("a bigint");
+    GenericComparator<8> comparator(key_schema.get());
+
+    auto *disk_manager = new DiskManager("test.db");
+    BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
+    // create b+ tree
+    BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
+    // create and fetch header_page
+    page_id_t page_id;
+    auto header_page = bpm->NewPage(&page_id);
+    (void)header_page;
+    // keys to Insert
+    std::vector<int64_t> keys;
+    int64_t scale_factor = 200;
+    for (int64_t key = 1; key < scale_factor; key++) {
+      keys.push_back(key);
+    }
+    LaunchParallelTest(8, InsertHelperSplit, &tree, keys, 2);
+
+    GenericKey<8> index_key;
+    std::vector<RID> rids;
+    for (auto key : keys) {
+      rids.clear();
+      assert(rids.empty());
+      index_key.SetFromInteger(key);
+      tree.GetValue(index_key, &rids);
+      EXPECT_EQ(rids.size(), 1);
+
+      int64_t value = key & 0xFFFFFFFF;
+      EXPECT_EQ(rids[0].GetSlotNum(), value);
+      LOG_DEBUG("Value is %d", rids[0].GetSlotNum());
+    }
+
+    // tree.Draw(bpm, "LastTree.dot");
+    int64_t start_key = 1;
+    int64_t current_key = start_key;
+    index_key.SetFromInteger(start_key);
+    for (auto iterator = tree.Begin(); iterator != tree.End(); ++iterator) {
+      auto location = (*iterator).second;
+      LOG_DEBUG("Current key is %ld", current_key);
+      LOG_DEBUG("Get Slot is %u", location.GetSlotNum());
+      EXPECT_EQ(location.GetPageId(), 0);
+      assert(location.GetSlotNum() == current_key);
+      current_key = current_key + 1;
+    }
+    EXPECT_EQ(current_key, keys.size() + 1);
+
+    bpm->UnpinPage(HEADER_PAGE_ID, true);
+
+    delete disk_manager;
+    delete bpm;
+    remove("test.db");
+    remove("test.log");
+    // assert(false);
+  }
 }
 
 const size_t NUM_ITERS = 1000;

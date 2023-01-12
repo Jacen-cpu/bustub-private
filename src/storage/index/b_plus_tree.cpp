@@ -51,7 +51,6 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_P
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetPage(page_id_t page_id, RWType rw) -> BPlusTreePage * {
   Page *page = buffer_pool_manager_->FetchPage(page_id);
-  // LOG_DEBUG("Get page is %d, pin count is %d", page_id, page->GetPinCount());
   rw == RWType::READ ? page->RLatch() : rw == RWType::WRITE ? page->WLatch() : void(0);
   auto b_tree_page = reinterpret_cast<BPlusTreePage *>(page->GetData());
   return b_tree_page;
@@ -69,6 +68,9 @@ auto BPLUSTREE_TYPE::GetLeafPage(page_id_t leaf_id, RWType rw) -> LeafPage * {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetRootPage(OpType op, Transaction *transaction) -> BPlusTreePage * {
+  if (transaction == nullptr) {
+    return GetPage(root_page_id_, RWType::UPDATE);
+  }
   RWType rw = op == OpType::READ ? RWType::READ : RWType::WRITE;
   root_latch_.lock();
   BPlusTreePage *root_page = GetPage(root_page_id_, rw);
@@ -76,10 +78,7 @@ auto BPLUSTREE_TYPE::GetRootPage(OpType op, Transaction *transaction) -> BPlusTr
   root_page->SetIsCurRoot(true);
   if (transaction != nullptr) {
     transaction->AddIntoPageSet(reinterpret_cast<Page *>(root_page));
-  } else {
-    root_latch_.unlock();
   }
-
   return root_page;
 }
 
@@ -122,9 +121,7 @@ void BPLUSTREE_TYPE::UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWT
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::DeletePage(Page *page, page_id_t page_id, bool is_dirty, RWType rw) {
   rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
-  // LOG_DEBUG("Current id is %d, PinCount is %d", page->GetPageId(), page->GetPinCount());
   assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true && "Delete Unpin page fail!");
-  // assert(buffer_pool_manager_->DeletePage(page_id) == true && "Delete page fail!");
   while (page->GetPinCount() != 0) {
   }
   if (!buffer_pool_manager_->DeletePage(page_id)) {
@@ -150,10 +147,19 @@ auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool left_most, OpType op,
     -> LeafPage * {
   auto curr_node_page = GetRootPage(op, transaction);
   page_id_t next_page_id;
-  while (!curr_node_page->IsLeafPage()) {
-    auto internal_node_page = reinterpret_cast<InternalPage *>(curr_node_page);
-    next_page_id = left_most ? internal_node_page->ValueAt(0) : internal_node_page->SearchExit(key, comparator_);
-    curr_node_page = CrabingPage(next_page_id, curr_node_page->GetPageId(), op, transaction);
+  if (transaction == nullptr) {
+    while (!curr_node_page->IsLeafPage()) {
+      auto internal_node_page = reinterpret_cast<InternalPage *>(curr_node_page);
+      next_page_id = left_most ? internal_node_page->ValueAt(0) : internal_node_page->SearchExit(key, comparator_);
+      UnpinPage(reinterpret_cast<Page *>(curr_node_page), curr_node_page->GetPageId(), false, RWType::UPDATE);
+      curr_node_page = GetPage(next_page_id, RWType::UPDATE);
+    }
+  } else {
+    while (!curr_node_page->IsLeafPage()) {
+      auto internal_node_page = reinterpret_cast<InternalPage *>(curr_node_page);
+      next_page_id = left_most ? internal_node_page->ValueAt(0) : internal_node_page->SearchExit(key, comparator_);
+      curr_node_page = CrabingPage(next_page_id, curr_node_page->GetPageId(), op, transaction);
+    }
   }
   return reinterpret_cast<LeafPage *>(curr_node_page);
 }
@@ -177,9 +183,7 @@ INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::FreePage(page_id_t cur_id, RWType rw, Transaction *transaction) {
   if (transaction == nullptr) {
     assert(rw == RWType::READ && cur_id >= 0);
-    auto page = buffer_pool_manager_->FetchPage(cur_id);
-    buffer_pool_manager_->UnpinPage(cur_id, true);
-    UnpinPage(page, cur_id, true, rw);
+    buffer_pool_manager_->UnpinPage(cur_id, false);
     return;
   }
   bool is_cur_root = false;
@@ -221,6 +225,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   root_latch_.unlock();
 
   auto leaf_node_page = FindLeafPage(key, false, OpType::READ, transaction);
+  LOG_DEBUG("Leaf page is %d", leaf_node_page->GetPageId());
   int index = leaf_node_page->Search(key, comparator_);
   if (index != -1) {
     result->push_back(leaf_node_page->ValueAt(index));
