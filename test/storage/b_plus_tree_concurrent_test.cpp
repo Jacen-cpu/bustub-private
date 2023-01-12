@@ -818,7 +818,6 @@ TEST(BPlusTreeConcurrent, DISABLED_MixTest4Call) {
 
     EXPECT_EQ(size, for_insert.size());
 
-    LOG_DEBUG("Root page is %d", tree.GetRootPageId());
     DeleteHelper(&tree, for_insert, 1);
     tree.Draw(bpm, "mix_remove.dot");
     size = 0;

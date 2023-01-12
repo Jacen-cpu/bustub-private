@@ -120,8 +120,19 @@ void BPLUSTREE_TYPE::UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWT
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::DeletePage(Page *page, page_id_t page_id, bool is_dirty, RWType rw) {
   rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
+  // LOG_DEBUG("Current id is %d, PinCount is %d", page->GetPageId(), page->GetPinCount());
   assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true && "Delete Unpin page fail!");
-  assert(buffer_pool_manager_->DeletePage(page_id) == true && "Delete page fail!");
+  // assert(buffer_pool_manager_->DeletePage(page_id) == true && "Delete page fail!");
+  while (page->GetPinCount() != 0) {}
+  if (!buffer_pool_manager_->DeletePage(page_id)) {
+    auto delet_page = reinterpret_cast<BPlusTreePage *>(page);
+    LOG_DEBUG("Current id is %d, PinCount is %d", delet_page->GetPageId(), page->GetPinCount());
+    auto parent = GetInternalPage(delet_page->GetParentPageId(), RWType::UPDATE);
+    for (int i = 0; i <= parent->GetSize(); ++i) {
+      LOG_DEBUG("Parent key is %ld, page id is %d", parent->GetArray()[i].first.ToString(), parent->GetArray()[i].second);
+    }
+    assert(false && "Delete page fail !");
+  }
 }
 
 /**
