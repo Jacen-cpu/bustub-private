@@ -122,7 +122,7 @@ void DeleteHelperSplit(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree
   delete transaction;
 }
 
-TEST(BPlusTreeConcurrentTest, DISABLED_InsertTest1) {
+TEST(BPlusTreeConcurrentTest, InsertTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -178,7 +178,7 @@ TEST(BPlusTreeConcurrentTest, DISABLED_InsertTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTest, DISABLED_InsertTest2) {
+TEST(BPlusTreeConcurrentTest, InsertTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -872,13 +872,13 @@ TEST(BPlusTreeConcurrent, MixTest3Call) {
 
     auto insert_task = [&](int tid) { InsertHelper(&tree, dynamic_keys, tid); };
     auto delete_task = [&](int tid) { DeleteHelper(&tree, dynamic_keys, tid); };
-    // auto lookup_task = [&](int tid) { LookupHelper(&tree, perserved_keys, tid); };
+    auto lookup_task = [&](int tid) { LookupHelper(&tree, perserved_keys, tid); };
 
     std::vector<std::thread> threads;
     std::vector<std::function<void(int)>> tasks;
     tasks.emplace_back(insert_task);
     tasks.emplace_back(delete_task);
-    // tasks.emplace_back(lookup_task);
+    tasks.emplace_back(lookup_task);
 
     size_t num_threads = 6;
     for (size_t i = 0; i < num_threads; i++) {

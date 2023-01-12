@@ -76,6 +76,8 @@ auto BPLUSTREE_TYPE::GetRootPage(OpType op, Transaction *transaction) -> BPlusTr
   root_page->SetIsCurRoot(true);
   if (transaction != nullptr) {
     transaction->AddIntoPageSet(reinterpret_cast<Page *>(root_page));
+  } else {
+    root_latch_.unlock();
   }
 
   return root_page;
@@ -123,13 +125,15 @@ void BPLUSTREE_TYPE::DeletePage(Page *page, page_id_t page_id, bool is_dirty, RW
   // LOG_DEBUG("Current id is %d, PinCount is %d", page->GetPageId(), page->GetPinCount());
   assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true && "Delete Unpin page fail!");
   // assert(buffer_pool_manager_->DeletePage(page_id) == true && "Delete page fail!");
-  while (page->GetPinCount() != 0) {}
+  while (page->GetPinCount() != 0) {
+  }
   if (!buffer_pool_manager_->DeletePage(page_id)) {
     auto delet_page = reinterpret_cast<BPlusTreePage *>(page);
     LOG_DEBUG("Current id is %d, PinCount is %d", delet_page->GetPageId(), page->GetPinCount());
     auto parent = GetInternalPage(delet_page->GetParentPageId(), RWType::UPDATE);
     for (int i = 0; i <= parent->GetSize(); ++i) {
-      LOG_DEBUG("Parent key is %ld, page id is %d", parent->GetArray()[i].first.ToString(), parent->GetArray()[i].second);
+      LOG_DEBUG("Parent key is %ld, page id is %d", parent->GetArray()[i].first.ToString(),
+                parent->GetArray()[i].second);
     }
     assert(false && "Delete page fail !");
   }
@@ -208,8 +212,7 @@ void BPLUSTREE_TYPE::FreePage(page_id_t cur_id, RWType rw, Transaction *transact
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
-  LOG_DEBUG("get the value of %ld ", key.ToString());
-
+  // LOG_DEBUG("get the value of %ld ", key.ToString());
   root_latch_.lock();
   if (IsEmpty()) {
     root_latch_.unlock();
