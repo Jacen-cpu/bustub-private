@@ -25,7 +25,7 @@ namespace bustub {
 #define MappingType std::pair<KeyType, ValueType>
 
 /**
- * Types
+ * Operation Types and Read Or Write Type
  */
 enum class RWType { READ = 0, WRITE, UPDATE };
 enum class OpType { INSERT = 0, REMOVE, READ, ITER };

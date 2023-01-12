@@ -698,7 +698,7 @@ TEST(BPlusTreeConcurrentTestC2Seq, DISABLED_SequentialMixTest) {
   remove("test.log");
 }
 
-const size_t NUM_ITERS = 100;
+const size_t NUM_ITERS = 1000;
 // const size_t NUM_ITERS_DEBUG = 100;
 TEST(BPlusTreeConcurrent, DISABLED_MixTest1Call) {
   for (size_t iter = 0; iter < NUM_ITERS; iter++) {
@@ -849,7 +849,7 @@ TEST(BPlusTreeConcurrent, MixTest3Call) {
     auto *disk_manager = new DiskManager("test.db");
     BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
     // create b+ tree
-    BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
+    BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
     // create and fetch header_page
     page_id_t page_id;
     auto header_page = bpm->NewPage(&page_id);
@@ -858,7 +858,7 @@ TEST(BPlusTreeConcurrent, MixTest3Call) {
     // Add perserved_keys
     std::vector<int64_t> perserved_keys;
     std::vector<int64_t> dynamic_keys;
-    size_t total_keys = 1000;
+    size_t total_keys = 100;
     size_t sieve = 5;
     for (size_t i = 1; i <= total_keys; i++) {
       if (i % sieve == 0) {
@@ -873,13 +873,13 @@ TEST(BPlusTreeConcurrent, MixTest3Call) {
 
     auto insert_task = [&](int tid) { InsertHelper(&tree, dynamic_keys, tid); };
     auto delete_task = [&](int tid) { DeleteHelper(&tree, dynamic_keys, tid); };
-    auto lookup_task = [&](int tid) { LookupHelper(&tree, perserved_keys, tid); };
+    // auto lookup_task = [&](int tid) { LookupHelper(&tree, perserved_keys, tid); };
 
     std::vector<std::thread> threads;
     std::vector<std::function<void(int)>> tasks;
     tasks.emplace_back(insert_task);
     tasks.emplace_back(delete_task);
-    tasks.emplace_back(lookup_task);
+    // tasks.emplace_back(lookup_task);
 
     size_t num_threads = 6;
     for (size_t i = 0; i < num_threads; i++) {

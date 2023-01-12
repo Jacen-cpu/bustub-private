@@ -113,34 +113,17 @@ class BPlusTree {
   auto StealInternal(InternalPage *deleting_internal, InternalPage *parent_internal, InternalPage *neber_internal,
                      int target_index, bool is_last) -> bool;
 
-  // void UpdateParentKey(const KeyType &new_key, page_id_t page_id);
-  // void UpdateRootParentKey(const KeyType &old_key, const KeyType &new_key, page_id_t  left_parent_id, page_id_t
-  // right_parent_id);
-
   /* some basic operations */
   auto GetLeafPage(page_id_t leaf_id, RWType rw) -> LeafPage *;
   auto GetInternalPage(page_id_t internal_id, RWType rw) -> InternalPage *;
   auto GetPage(page_id_t page_id, RWType rw) -> BPlusTreePage *;
-
   auto GetRootPage(OpType op, Transaction *transaction) -> BPlusTreePage *;
   auto GetLeftMostKey(InternalPage *internal_page) -> KeyType;
-  // auto GetFirstLeaf() -> LeafPage *;
-  // auto GetLastLeaf() -> LeafPage *;
-
   auto CreateLeafPage(page_id_t *new_page_id, page_id_t parent_page_id, RWType rw) -> LeafPage *;
   auto CreateInternalPage(page_id_t *new_page_id, page_id_t parent_page_id, RWType rw) -> InternalPage *;
   auto CreatePage(page_id_t *new_page_id, RWType rw) -> BPlusTreePage *;
-
   void UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWType rw);
   void DeletePage(Page *page, page_id_t page_id, bool is_dirty, RWType rw);
-
-  /* Debug function */
-  auto CheckPin(page_id_t page_id) -> bool {
-    int count = buffer_pool_manager_->FetchPage(page_id)->GetPinCount() - 1;
-    LOG_INFO("page %d pin count is %d", page_id, count);
-    buffer_pool_manager_->UnpinPage(page_id, false);
-    return count == 1;
-  }
 
   /* == member variable == */
   std::string index_name_;
