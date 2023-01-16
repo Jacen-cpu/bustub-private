@@ -16,6 +16,7 @@
 
 #include "buffer/buffer_pool_manager.h"
 #include "catalog/catalog.h"
+#include "common/logger.h"
 #include "concurrency/transaction_manager.h"
 #include "execution/executor_context.h"
 #include "execution/executor_factory.h"
@@ -49,9 +50,9 @@ class ExecutionEngine {
    */
   auto Execute(const AbstractPlanNodeRef &plan, std::vector<Tuple> *result_set, Transaction *txn,
                ExecutorContext *exec_ctx) -> bool {
+    LOG_DEBUG("The plan type is %d", plan->GetType());
     // Construct and executor for the plan
     auto executor = ExecutorFactory::CreateExecutor(exec_ctx, plan);
-
     // Prepare the root executor
     executor->Init();
 

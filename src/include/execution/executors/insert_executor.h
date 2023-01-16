@@ -61,6 +61,6 @@ class InsertExecutor : public AbstractExecutor {
   /** The insert plan node to be executed*/
   const InsertPlanNode *plan_;
   TableInfo *table_info_;
-  bool is_fin_; 
+  bool is_fin_;
 };
 }  // namespace bustub

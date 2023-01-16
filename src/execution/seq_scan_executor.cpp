@@ -19,21 +19,21 @@
 
 namespace bustub {
 
-SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan) 
-    : AbstractExecutor(exec_ctx), plan_(plan), table_iter_(nullptr, RID(INVALID_PAGE_ID, 0), nullptr) { }
+SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan)
+    : AbstractExecutor(exec_ctx), plan_(plan), table_iter_(nullptr, RID(INVALID_PAGE_ID, 0), nullptr) {}
 
-void SeqScanExecutor::Init() { 
-    table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
-    table_iter_ = table_info_->table_->Begin(exec_ctx_->GetTransaction()); 
+void SeqScanExecutor::Init() {
+  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
+  table_iter_ = table_info_->table_->Begin(exec_ctx_->GetTransaction());
 }
 
-auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool { 
-    if (table_iter_ == table_info_->table_->End()) {
-        return false;
-    } 
-    *tuple = *table_iter_;
-    *rid = tuple->GetRid();
-    table_iter_++;
-    return true;
+auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
+  if (table_iter_ == table_info_->table_->End()) {
+    return false;
+  }
+  *tuple = *table_iter_;
+  *rid = tuple->GetRid();
+  table_iter_++;
+  return true;
 }
 }  // namespace bustub

@@ -46,8 +46,6 @@ class IndexIterator {
     return itr.leaf_->GetPageId() != leaf_->GetPageId() || itr.cur_pos_ != cur_pos_;
   }
 
-  // auto GetPage() -> Page * { return reinterpret_cast<Page *>(leaf_); }
-
  private:
   LeafPage *leaf_;
   int cur_leaf_size_;
