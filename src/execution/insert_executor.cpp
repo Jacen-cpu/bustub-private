@@ -44,7 +44,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   LOG_DEBUG("Child Plan Type is %d", child_plan->GetType());
 
   if (child_plan->GetType() == PlanType::Values) {
-    auto value_plan = std::static_pointer_cast<const ValuesPlanNode>(child_plan);
+    auto value_plan = std::dynamic_pointer_cast<const ValuesPlanNode>(child_plan);
     for (const auto &exprs : value_plan->GetValues()) {
       if (exprs.size() != schema_cols.size()) {
         return false;
@@ -62,15 +62,14 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
       table_info_->table_->InsertTuple(tup, &tmp_rid, exec_ctx_->GetTransaction());
       // update the index
       for (auto index_info : table_indexes) {
-        auto tree = dynamic_cast<BPlusTreeIndexForOneIntegerColumn *>(index_info->index_.get()); 
+        auto tree = dynamic_cast<BPlusTreeIndexForOneIntegerColumn *>(index_info->index_.get());
         // construct key attrs
         std::vector<uint32_t> key_attrs{};
         for (const auto &col : index_info->key_schema_.GetColumns()) {
           key_attrs.push_back(table_info_->schema_.GetColIdx(col.GetName()));
         }
         // insert key into b+ tree
-        tree->InsertEntry(tup.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs), 
-                          tmp_rid, 
+        tree->InsertEntry(tup.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs), tmp_rid,
                           exec_ctx_->GetTransaction());
       }
       insert_num++;
@@ -85,14 +84,13 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
       table_info_->table_->InsertTuple(tup, &tmp_rid, exec_ctx_->GetTransaction());
       // update the index
       for (auto index_info : table_indexes) {
-        auto tree = dynamic_cast<BPlusTreeIndexForOneIntegerColumn *>(index_info->index_.get()); 
+        auto tree = dynamic_cast<BPlusTreeIndexForOneIntegerColumn *>(index_info->index_.get());
         // construct key attrs
         std::vector<uint32_t> key_attrs{};
         for (const auto &col : index_info->key_schema_.GetColumns()) {
           key_attrs.push_back(table_info_->schema_.GetColIdx(col.GetName()));
         }
-        tree->InsertEntry(tup.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs),
-                          tmp_rid,
+        tree->InsertEntry(tup.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs), tmp_rid,
                           exec_ctx_->GetTransaction());
       }
       insert_num++;

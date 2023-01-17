@@ -27,26 +27,27 @@ void DeleteExecutor::Init() {
 }
 
 auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
-  if (is_fin_) { return false; }
+  if (is_fin_) {
+    return false;
+  }
   Tuple child_tuple{};
   RID tmp_rid{};
   auto table_indexes = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
   int32_t delete_num = 0;
 
   while (child_executor_->Next(&child_tuple, &tmp_rid)) {
-    if (!table_info_->table_->MarkDelete(tmp_rid, exec_ctx_->GetTransaction())){
+    if (!table_info_->table_->MarkDelete(tmp_rid, exec_ctx_->GetTransaction())) {
       return false;
     }
     // update the index
     for (auto index_info : table_indexes) {
-      auto tree = dynamic_cast<BPlusTreeIndexForOneIntegerColumn *>(index_info->index_.get()); 
+      auto tree = dynamic_cast<BPlusTreeIndexForOneIntegerColumn *>(index_info->index_.get());
       // construct key attrs
       std::vector<uint32_t> key_attrs{};
       for (const auto &col : index_info->key_schema_.GetColumns()) {
         key_attrs.push_back(table_info_->schema_.GetColIdx(col.GetName()));
       }
-      tree->DeleteEntry(child_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs),
-                        tmp_rid,
+      tree->DeleteEntry(child_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs), tmp_rid,
                         exec_ctx_->GetTransaction());
     }
     delete_num++;

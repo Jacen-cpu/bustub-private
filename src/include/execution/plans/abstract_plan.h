@@ -32,22 +32,22 @@ namespace bustub {
 
 /** PlanType represents the types of plans that we have in our system. */
 enum class PlanType {
-  SeqScan,
-  IndexScan,
-  Insert,
-  Update,
-  Delete,
-  Aggregation,
-  Limit,
-  NestedLoopJoin,
-  NestedIndexJoin,
-  HashJoin,
-  Filter,
-  Values,
-  Projection,
-  Sort,
-  TopN,
-  MockScan
+  SeqScan,          // 0
+  IndexScan,        // 1
+  Insert,           // 2
+  Update,           // 3
+  Delete,           // 4
+  Aggregation,      // 5
+  Limit,            // 6
+  NestedLoopJoin,   // 7
+  NestedIndexJoin,  // 8
+  HashJoin,         // 9
+  Filter,           // 10
+  Values,           // 11
+  Projection,       // 12
+  Sort,             // 13
+  TopN,             // 14
+  MockScan          // 15
 };
 
 class AbstractPlanNode;
