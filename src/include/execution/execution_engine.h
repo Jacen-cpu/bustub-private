@@ -61,6 +61,8 @@ class ExecutionEngine {
       Tuple tuple;
       RID rid;
       while (executor->Next(&tuple, &rid)) {
+        LOG_DEBUG("next next");
+        // LOG_DEBUG("%s", tuple.ToString(&executor->GetOutputSchema()).c_str());
         if (result_set != nullptr) {
           result_set->push_back(tuple);
         }

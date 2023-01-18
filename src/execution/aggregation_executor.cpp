@@ -32,19 +32,21 @@ void AggregationExecutor::Init() {
   // init the aggreation hash table
   Tuple tup{};
   RID tmp_rid{};
-
+  aht_.Clear();
   // anyway insert without check
   if (child_->Next(&tup, &tmp_rid)) {
     aht_.InsertCombine(MakeAggregateKey(&tup), MakeAggregateValue(&tup));
   } else {
     if (plan_->GetGroupBys().empty()) {
-      aht_.InsertCombine(MakeAggregateKey(&tup), {std::vector<Value>{ValueFactory::GetNullValueByType(TypeId::INTEGER)}});
+      aht_.InsertCombine(MakeAggregateKey(&tup),
+                         {std::vector<Value>{ValueFactory::GetNullValueByType(TypeId::INTEGER)}});
     }
   }
-
+  // insert aggregate key and value
   while (child_->Next(&tup, &tmp_rid)) {
     aht_.InsertCombine(MakeAggregateKey(&tup), MakeAggregateValue(&tup));
   }
+  // update the aht iterator
   aht_iterator_ = aht_.Begin();
 }
 

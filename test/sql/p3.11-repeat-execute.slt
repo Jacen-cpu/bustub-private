@@ -21,6 +21,12 @@ select * from __mock_table_123, t1;
 3 0 🥰 
 3 1 🥰🥰
 
+
+#debug
+#query rowsort
+#select * from (select count(*) from t1);
+#----
+
 # SimpleAgg as the right child
 
 query rowsort
