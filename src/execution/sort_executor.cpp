@@ -61,6 +61,7 @@ auto SortExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     return false;
   }
   *tuple = *all_tuples_iter_;
+  *rid = tuple->GetRid();
   ++all_tuples_iter_;
   return true;
 }
