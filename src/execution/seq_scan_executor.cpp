@@ -12,6 +12,7 @@
 
 #include "execution/executors/seq_scan_executor.h"
 #include "common/config.h"
+#include "common/logger.h"
 #include "common/rid.h"
 #include "storage/page/header_page.h"
 #include "storage/table/table_heap.h"

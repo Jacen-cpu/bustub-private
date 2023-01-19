@@ -29,7 +29,7 @@ NestIndexJoinExecutor::NestIndexJoinExecutor(ExecutorContext *exec_ctx, const Ne
   }
 }
 
-void NestIndexJoinExecutor::Init() { 
+void NestIndexJoinExecutor::Init() {
   index_info_ = exec_ctx_->GetCatalog()->GetIndex(plan_->GetIndexOid());
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetInnerTableOid());
   tree_ = dynamic_cast<BPlusTreeIndexForOneIntegerColumn *>(index_info_->index_.get());
@@ -41,12 +41,14 @@ auto NestIndexJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   RID out_rid{};
   // find left tup
   while (true) {
-    if (!child_executor_->Next(&out_tup, &out_rid)) { return false; }
+    if (!child_executor_->Next(&out_tup, &out_rid)) {
+      return false;
+    }
     Value key = plan_->KeyPredicate()->Evaluate(&out_tup, child_executor_->GetOutputSchema());
     std::vector<RID> result{};
     tree_->ScanKey(Tuple{{key}, &index_info_->key_schema_}, &result, exec_ctx_->GetTransaction());
     LOG_DEBUG("result size is %zu", result.size());
-    
+
     // find the tuple
     if (!result.empty()) {
       Tuple inner_tup{};
@@ -68,7 +70,7 @@ auto NestIndexJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       for (uint32_t i = 0; i < child_executor_->GetOutputSchema().GetColumnCount(); ++i) {
         values.emplace_back(out_tup.GetValue(&child_executor_->GetOutputSchema(), i));
       }
-      for (auto & col : plan_->InnerTableSchema().GetColumns()) {
+      for (auto &col : plan_->InnerTableSchema().GetColumns()) {
         values.emplace_back(ValueFactory::GetNullValueByType(col.GetType()));
       }
       *tuple = Tuple{values, &plan_->OutputSchema()};

@@ -369,6 +369,13 @@ select colA from (select colC, colA, colB, from temp_2 order by colC - colB + co
 
 # Repeat
 query rowsort
+select * from temp_1 order by colA desc limit 3;
+----
+99 6 4482 57463 
+98 3 1394 17139 
+97 1 2273 63790
+
+query rowsort
 select * from __mock_table_123, (select * from temp_1 order by colA desc limit 3);
 ----
 1 99 6 4482 57463

@@ -51,14 +51,14 @@ void NestedLoopJoinExecutor::ConcatTuple(Tuple *right_tup, Tuple *out_tup) {
     values.emplace_back(left_tup_.GetValue(&left_executor_->GetOutputSchema(), i));
   }
   if (right_tup == nullptr) {
-    for (auto & col : right_executor_->GetOutputSchema().GetColumns()) {
+    for (auto &col : right_executor_->GetOutputSchema().GetColumns()) {
       values.emplace_back(ValueFactory::GetNullValueByType(col.GetType()));
     }
   } else {
     for (uint32_t i = 0; i < right_executor_->GetOutputSchema().GetColumnCount(); ++i) {
       values.emplace_back(right_tup->GetValue(&right_executor_->GetOutputSchema(), i));
     }
-  } 
+  }
   *out_tup = Tuple{values, &plan_->OutputSchema()};
 }
 
@@ -88,12 +88,14 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         ConcatTuple(nullptr, tuple);
         return true;
       }
-      if (!n_st) { return false; }
+      if (!n_st) {
+        return false;
+      }
     }
-    
+
     auto value = plan_->Predicate().EvaluateJoin(&left_tup_, left_executor_->GetOutputSchema(), &right_tup,
                                                  right_executor_->GetOutputSchema());
-                                          
+
     // concat the two tuple
     if (!value.IsNull() && value.GetAs<bool>()) {
       ConcatTuple(&right_tup, tuple);
