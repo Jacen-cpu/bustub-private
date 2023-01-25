@@ -35,7 +35,7 @@ class TransactionManager;
  */
 class LockManager {
  public:
-  enum class LockMode { SHARED, EXCLUSIVE, INTENTION_SHARED, INTENTION_EXCLUSIVE, SHARED_INTENTION_EXCLUSIVE };
+  enum class LockMode { INTENTION_SHARED, INTENTION_EXCLUSIVE, SHARED, SHARED_INTENTION_EXCLUSIVE, EXCLUSIVE };
 
   /**
    * Structure to hold a lock request.
@@ -64,7 +64,7 @@ class LockManager {
   class LockRequestQueue {
    public:
     /** List of lock requests for the same resource (table or row) */
-    std::list<LockRequest *> request_queue_;
+    std::list<std::shared_ptr<LockRequest>> request_queue_;
     /** For notifying blocked transactions on this rid */
     std::condition_variable cv_;
     /** txn_id of an upgrading transaction (if any) */
@@ -299,13 +299,15 @@ class LockManager {
 
  private:
   /** Fall 2022 */
+  auto TryAcquireLock(Transaction *txn, const std::shared_ptr<LockRequestQueue> & queue, LockMode lock_mode) -> bool;
+  auto CheckCompatible(LockMode hold_lock_mode, LockMode want_lock_mode) -> bool;
   /** Structure that holds lock requests for a given table oid */
-  std::unordered_map<table_oid_t, LockRequestQueue> table_lock_map_;
+  std::unordered_map<table_oid_t, std::shared_ptr<LockRequestQueue>> table_lock_map_;
   /** Coordination */
   std::mutex table_lock_map_latch_;
 
   /** Structure that holds lock requests for a given RID */
-  std::unordered_map<RID, LockRequestQueue> row_lock_map_;
+  std::unordered_map<RID, std::shared_ptr<LockRequestQueue>> row_lock_map_;
   /** Coordination */
   std::mutex row_lock_map_latch_;
 

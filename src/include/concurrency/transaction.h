@@ -326,9 +326,6 @@ class Transaction {
    */
   inline void SetPrevLSN(lsn_t prev_lsn) { prev_lsn_ = prev_lsn; }
 
-  // inline void SetOldRootId(page_id_t root_id) { old_root_id_ = root_id; }
-  // inline auto GetOldRootId() const -> page_id_t { return old_root_id_; }
-
  private:
   /** The current transaction state. */
   TransactionState state_{TransactionState::GROWING};
