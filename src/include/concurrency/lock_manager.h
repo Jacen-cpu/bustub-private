@@ -299,8 +299,13 @@ class LockManager {
 
  private:
   /** Fall 2022 */
-  auto TryAcquireLock(Transaction *txn, const std::shared_ptr<LockRequestQueue> & queue, LockMode lock_mode) -> bool;
+  auto TryAcquireLock(Transaction *txn, const std::shared_ptr<LockRequestQueue> &queue, LockMode lock_mode) -> bool;
   auto CheckCompatible(LockMode hold_lock_mode, LockMode want_lock_mode) -> bool;
+  auto CheckUpgradingCompatible(LockMode old_lock_mode, LockMode new_lock_mode) -> bool;
+  void TxnInsertTableLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid);
+  void TxnRemoveTableLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid);
+  void TxnInsertRowLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid);
+  void TxnRemoveRowLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid);
   /** Structure that holds lock requests for a given table oid */
   std::unordered_map<table_oid_t, std::shared_ptr<LockRequestQueue>> table_lock_map_;
   /** Coordination */
