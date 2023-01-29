@@ -306,6 +306,11 @@ class LockManager {
   void TxnRemoveTableLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid);
   void TxnInsertRowLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid);
   void TxnRemoveRowLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid);
+  void Traverse(std::unordered_set<txn_id_t> &visited, 
+                std::unordered_map<txn_id_t, bool> &on_path,
+                const std::unordered_map<txn_id_t, std::vector<txn_id_t>> &graph,
+                txn_id_t s,
+                std::pair<bool, txn_id_t> &has_cycle);
   /** Structure that holds lock requests for a given table oid */
   std::unordered_map<table_oid_t, std::shared_ptr<LockRequestQueue>> table_lock_map_;
   /** Coordination */
@@ -320,6 +325,7 @@ class LockManager {
   std::thread *cycle_detection_thread_;
   /** Waits-for graph representation. */
   std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
+  std::unordered_map<txn_id_t, std::shared_ptr<LockRequestQueue>> req_que_map_;
   std::mutex waits_for_latch_;
 };
 
