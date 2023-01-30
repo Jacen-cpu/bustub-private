@@ -35,7 +35,8 @@ void SeqScanExecutor::Init() {
     if (!exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(), LockManager::LockMode::SHARED,
                                                 table_info_->oid_)) {
       LOG_DEBUG("DeadLock???");
-      throw TransactionAbortException(exec_ctx_->GetTransaction()->GetTransactionId(), AbortReason::DEADLOCK);
+      // throw TransactionAbortException(exec_ctx_->GetTransaction()->GetTransactionId(), AbortReason::DEADLOCK);
+      throw Exception("error");
     }
   }
 }
@@ -51,7 +52,8 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (exec_ctx_->GetTransaction()->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED) {
     if (!exec_ctx_->GetLockManager()->LockRow(exec_ctx_->GetTransaction(), LockManager::LockMode::SHARED,
                                               table_info_->oid_, table_iter_->GetRid())) {
-      throw TransactionAbortException(exec_ctx_->GetTransaction()->GetTransactionId(), AbortReason::DEADLOCK);
+      //throw TransactionAbortException(exec_ctx_->GetTransaction()->GetTransactionId(), AbortReason::DEADLOCK);
+      throw Exception("error");
     }
   }
   *tuple = *table_iter_;

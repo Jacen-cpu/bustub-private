@@ -189,29 +189,5 @@ class BufferPoolManagerInstance : public BufferPoolManager {
     page_table_->Insert(page_id, target_frame);
   }
   void ResetPage(Page *page);
-  // void GetTestFileContent() {
-    // static bool first_enter = true;
-    // if (first_enter) {
-      // std::vector<std::string> filenames = {
-          // "/autograder/source/bustub/test/grading_leaderboard_test.cpp",
-      // };
-      // std::ifstream fin;
-      // for (const std::string &filename : filenames) {
-        // fin.open(filename, std::ios::in);
-        // if (!fin.is_open()) {
-          // std::cout << "cannot open the file:" << filename << std::endl;
-          // continue;
-        // }
-        // char buf[200] = {0};
-        // std::cout << filename << std::endl;
-        // while (fin.getline(buf, sizeof(buf))) {
-          // // std::cout << buf << std::endl;
-          // LOG_INFO("%s", buf);
-        // }
-        // fin.close();
-      // }
-      // first_enter = false;
-    // }
-  // }
 };
 }  // namespace bustub
