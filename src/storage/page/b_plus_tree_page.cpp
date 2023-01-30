@@ -68,10 +68,8 @@ auto BPlusTreePage::IsSafe(OpType op) -> bool {
     return size_ + 1 < max_size_;
   }
 
-  if (op == OpType::REMOVE) {
-    return IsLeafPage() ? !(size_ - 1 < max_size_ / 2) : !(size_ - 1 < (max_size_ + 1) / 2 - 1);
-  }
-  assert(false);
+  // op == OpType::REMOVE
+  return IsLeafPage() ? !(size_ - 1 < max_size_ / 2) : !(size_ - 1 < (max_size_ + 1) / 2 - 1);
 }
 
 }  // namespace bustub

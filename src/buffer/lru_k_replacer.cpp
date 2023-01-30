@@ -27,11 +27,6 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     latch_.unlock();
     return false;
   }
-  // check the queue.
-  // if (cached_queue_.empty() && no_cached_queue_.empty()) {
-  // latch_.unlock();
-  // return false;
-  // }
 
   auto it = no_cached_queue_.begin();
   for (; it != no_cached_queue_.end(); it++) {
@@ -40,10 +35,6 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     }
   }
 
-  // if (it == cached_queue_.end()) {
-  // latch_.unlock();
-  // return false;
-  // }
   if (it != no_cached_queue_.end()) {
     *frame_id = *it;
     no_cached_queue_.erase(it);
@@ -59,16 +50,6 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   }
 
   // this is how we find the evict page when all is inf+.
-  // *frame_id = no_cached_queue_.front();
-  // no_cached_queue_.pop_front();
-
-  // bug?
-
-  // if (it == no_cached_queue_.end()) {
-  // latch_.unlock();
-  // return false;
-  // }
-
   // get the evi frame
   if (auto search = frames_.find(*frame_id); search != frames_.end()) {
     search->second.is_alive_ = false;
@@ -77,18 +58,12 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     curr_size_--;
   }
 
-  // // debug
-  // LOG_INFO("# Evict the page: %d", *frame_id);
-
   latch_.unlock();
   return true;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
   latch_.lock();
-  // debug
-  // LOG_INFO("# Record the page: %d", frame_id);
-
   // check the frame id.
   if (!CheckFrame(frame_id)) {
     latch_.unlock();
@@ -148,9 +123,6 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   latch_.lock();
-  // debug
-  //  LOG_INFO("# Set the page $%d, $%d", frame_id, set_evictable);
-
   if (!CheckFrame(frame_id)) {
     latch_.unlock();
     throw "Invalid frame!";
@@ -170,10 +142,6 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   latch_.lock();
-
-  // debug
-  //  LOG_INFO("# Remove the page %d", frame_id);
-
   if (!CheckFrame(frame_id)) {
     latch_.unlock();
     throw "Invalid frame!";

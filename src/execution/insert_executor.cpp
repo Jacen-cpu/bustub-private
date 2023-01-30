@@ -16,7 +16,10 @@
 
 #include "catalog/column.h"
 #include "catalog/schema.h"
+#include "common/exception.h"
 #include "common/logger.h"
+#include "concurrency/lock_manager.h"
+#include "concurrency/transaction.h"
 #include "execution/executors/insert_executor.h"
 #include "execution/plans/abstract_plan.h"
 #include "execution/plans/values_plan.h"
@@ -32,6 +35,14 @@ InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *
 void InsertExecutor::Init() {
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
   child_executor_->Init();
+  /* == Lock Table == */
+  try {
+    exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(), LockManager::LockMode::EXCLUSIVE,
+                                           table_info_->oid_);
+  } catch (TransactionAbortException &e) {
+    LOG_INFO("%s", e.GetInfo().c_str());
+    throw e;
+  }
 }
 
 auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
@@ -43,7 +54,19 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   int32_t insert_num = 0;
   Tuple tup;
   RID tmp_rid;
-  while (child_executor_->Next(&tup, &tmp_rid)) {
+  while (true) {
+    try {
+      if (!child_executor_->Next(&tup, &tmp_rid)) {
+        break;
+      }
+    } catch (Exception &e) {
+      throw Exception(ExceptionType::UNKNOWN_TYPE, "DeleteExecutor:child execute error.");
+      return false;
+    }
+    /* == Lock Row == */
+    exec_ctx_->GetLockManager()->LockRow(exec_ctx_->GetTransaction(), LockManager::LockMode::EXCLUSIVE,
+                                         table_info_->oid_, tmp_rid);
+
     table_info_->table_->InsertTuple(tup, &tmp_rid, exec_ctx_->GetTransaction());
     // update the index
     for (auto index_info : table_indexes) {
@@ -57,10 +80,17 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
                         exec_ctx_->GetTransaction());
     }
     insert_num++;
+
+    // /* == Unlock Low == */
+    // if (exec_ctx_->GetTransaction()->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+    // exec_ctx_->GetLockManager()->UnlockRow(exec_ctx_->GetTransaction(), table_info_->oid_, tmp_rid);
+    // }
   }
   is_fin_ = true;
   *tuple = Tuple{std::vector<Value>{Value{TypeId::INTEGER, insert_num}}, &GetOutputSchema()};
   // *rid = tuple->GetRid();
+  // /* == Unlock Table == */
+  // exec_ctx_->GetLockManager()->UnlockTable(exec_ctx_->GetTransaction(), table_info_->oid_);
   return true;
 }
 

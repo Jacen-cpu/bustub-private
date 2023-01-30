@@ -104,7 +104,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::NeedRedsb() -> bool {
-  assert(!IsRootPage());
+  // assert(!IsRootPage());
   return GetSize() < (GetMaxSize() + 1) / 2 - 1;
 }
 

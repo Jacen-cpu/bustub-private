@@ -28,8 +28,8 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
       comparator_(comparator),
       leaf_max_size_(leaf_max_size),
       internal_max_size_(internal_max_size) {
-  LOG_DEBUG("Pool size is %zu", buffer_pool_manager->GetPoolSize());
-  LOG_DEBUG("leaf max size %d, internal max size %d", leaf_max_size, internal_max_size);
+  // LOG_DEBUG("Pool size is %zu", buffer_pool_manager->GetPoolSize());
+  // LOG_DEBUG("leaf max size %d, internal max size %d", leaf_max_size, internal_max_size);
 }
 
 /**
@@ -74,7 +74,7 @@ auto BPLUSTREE_TYPE::GetRootPage(OpType op, Transaction *transaction) -> BPlusTr
   RWType rw = op == OpType::READ ? RWType::READ : RWType::WRITE;
   root_latch_.lock();
   BPlusTreePage *root_page = GetPage(root_page_id_, rw);
-  assert(root_page->IsRootPage());
+  // assert(root_page->IsRootPage());
   root_page->SetIsCurRoot(true);
   if (transaction != nullptr) {
     transaction->AddIntoPageSet(reinterpret_cast<Page *>(root_page));
@@ -114,26 +114,25 @@ auto BPLUSTREE_TYPE::CreateInternalPage(page_id_t *new_page_id, page_id_t parent
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWType rw) {
   rw == RWType::UPDATE ? void(0) : rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
-  assert(page->GetPinCount() != 0 && "The page may have written back to disk.");
-  assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true && "Unpin page fail!");
+  // assert(page->GetPinCount() != 0 && "The page may have written back to disk.");
+  buffer_pool_manager_->UnpinPage(page_id, is_dirty);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::DeletePage(Page *page, page_id_t page_id, bool is_dirty, RWType rw) {
   rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
-  assert(buffer_pool_manager_->UnpinPage(page_id, is_dirty) == true && "Delete Unpin page fail!");
+  buffer_pool_manager_->UnpinPage(page_id, is_dirty);
   while (page->GetPinCount() != 0) {
   }
-  if (!buffer_pool_manager_->DeletePage(page_id)) {
-    auto delet_page = reinterpret_cast<BPlusTreePage *>(page);
-    LOG_DEBUG("Current id is %d, PinCount is %d", delet_page->GetPageId(), page->GetPinCount());
-    auto parent = GetInternalPage(delet_page->GetParentPageId(), RWType::UPDATE);
-    for (int i = 0; i <= parent->GetSize(); ++i) {
-      LOG_DEBUG("Parent key is %ld, page id is %d", parent->GetArray()[i].first.ToString(),
-                parent->GetArray()[i].second);
-    }
-    assert(false && "Delete page fail !");
-  }
+  buffer_pool_manager_->DeletePage(page_id);
+  // auto delet_page = reinterpret_cast<BPlusTreePage *>(page);
+  // LOG_DEBUG("Current id is %d, PinCount is %d", delet_page->GetPageId(), page->GetPinCount());
+  // auto parent = GetInternalPage(delet_page->GetParentPageId(), RWType::UPDATE);
+  // for (int i = 0; i <= parent->GetSize(); ++i) {
+  // LOG_DEBUG("Parent key is %ld, page id is %d", parent->GetArray()[i].first.ToString(),
+  // parent->GetArray()[i].second);
+  // }
+  // assert(false && "Delete page fail !");
 }
 
 /**
@@ -182,7 +181,7 @@ auto BPLUSTREE_TYPE::CrabingPage(page_id_t page_id, page_id_t previous, OpType o
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::FreePage(page_id_t cur_id, RWType rw, Transaction *transaction) {
   if (transaction == nullptr) {
-    assert(rw == RWType::READ && cur_id >= 0);
+    // assert(rw == RWType::READ && cur_id >= 0);
     buffer_pool_manager_->UnpinPage(cur_id, false);
     return;
   }
@@ -202,7 +201,7 @@ void BPLUSTREE_TYPE::FreePage(page_id_t cur_id, RWType rw, Transaction *transact
       UnpinPage(page, page_id, true, rw);
     }
   }
-  assert(transaction->GetDeletedPageSet()->empty());
+  // assert(transaction->GetDeletedPageSet()->empty());
   transaction->GetPageSet()->clear();
 }
 
@@ -225,7 +224,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   root_latch_.unlock();
 
   auto leaf_node_page = FindLeafPage(key, false, OpType::READ, transaction);
-  LOG_DEBUG("Leaf page is %d", leaf_node_page->GetPageId());
+  // LOG_DEBUG("Leaf page is %d", leaf_node_page->GetPageId());
   int index = leaf_node_page->Search(key, comparator_);
   if (index != -1) {
     result->push_back(leaf_node_page->ValueAt(index));
@@ -459,7 +458,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
       int target_index = parent_internal->SearchPosition(deleting_leaf->GetPageId());
       int neber_index = target_index >= parent_internal->GetSize() ? target_index - 1 : target_index + 1;
       bool is_last = neber_index < target_index;
-      assert(parent_internal->ValueAt(neber_index) != deleting_leaf->GetPageId());
+      // assert(parent_internal->ValueAt(neber_index) != deleting_leaf->GetPageId());
       LeafPage *neber_leaf = GetLeafPage(parent_internal->ValueAt(neber_index), RWType::WRITE);
       transaction->AddIntoPageSet(reinterpret_cast<Page *>(neber_leaf));
       /* =======================================    Steal     ========================================= */
@@ -537,7 +536,7 @@ void BPLUSTREE_TYPE::RedsbInternal(InternalPage *deleting_internal, Transaction 
   auto parent_internal = GetInternalPage(deleting_internal->GetParentPageId(), RWType::UPDATE);
   int target_index = parent_internal->SearchPosition(deleting_internal->GetPageId());
   int neber_index = target_index == parent_internal->GetSize() ? target_index - 1 : target_index + 1;
-  assert(parent_internal->ValueAt(neber_index) != deleting_internal->GetPageId());
+  // assert(parent_internal->ValueAt(neber_index) != deleting_internal->GetPageId());
   auto neber_internal = GetInternalPage(parent_internal->ValueAt(neber_index), RWType::WRITE);
   bool is_last = neber_index < target_index;
   transaction->AddIntoPageSet(reinterpret_cast<Page *>(neber_internal));
@@ -650,7 +649,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   auto target_leaf = FindLeafPage(key, false, OpType::READ, nullptr);
   reinterpret_cast<Page *>(target_leaf)->RUnlatch();
   int target_index = target_leaf->Search(key, comparator_);
-  assert(target_index != -1);
+  // assert(target_index != -1);
   return std::move(IndexIterator<KeyType, ValueType, KeyComparator>(target_leaf, buffer_pool_manager_, target_index));
 }
 

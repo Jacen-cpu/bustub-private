@@ -16,9 +16,8 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
-#include <mutex>
 #include <shared_mutex>
-#include <thread>
+#include <thread>  // NOLINT
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -247,18 +246,15 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   while (!TryAcquireLock(txn, lock_req_que, lock_mode)) {
     lock_req_que->cv_.wait(queue_lock);
     if (txn->GetState() == TransactionState::ABORTED) {
-        assert(lock_req_que->upgrading_ != txn->GetTransactionId());
-        // release resources
-        return false;
+      assert(lock_req_que->upgrading_ != txn->GetTransactionId());
+      // release resources
+      return false;
     }
   }
   lock_req->granted_ = true;
   if (lock_req_que->upgrading_ == txn->GetTransactionId()) {
     lock_req_que->upgrading_ = INVALID_TXN_ID;
   }
-  // } catch (TransactionAbortException e) {
-  // LOG_DEBUG("%s", e.GetInfo().c_str());
-  // }
 
   // booking keeping
   TxnInsertTableLock(txn, lock_mode, oid);
@@ -420,9 +416,9 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   while (!TryAcquireLock(txn, lock_req_que, lock_mode)) {
     lock_req_que->cv_.wait(queue_lock);
     if (txn->GetState() == TransactionState::ABORTED) {
-        assert(lock_req_que->upgrading_ != txn->GetTransactionId());
-        // release resources
-        return false;
+      assert(lock_req_que->upgrading_ != txn->GetTransactionId());
+      // release resources
+      return false;
     }
   }
   lock_req->granted_ = true;
@@ -507,7 +503,7 @@ auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
   std::unordered_set<txn_id_t> visited{};
   std::unordered_map<txn_id_t, bool> on_path{};
   std::pair<bool, txn_id_t> has_cycle = std::make_pair(false, INVALID_TXN_ID);
-  for (const auto & edge_pair : waits_for_) {
+  for (const auto &edge_pair : waits_for_) {
     Traverse(visited, on_path, waits_for_, edge_pair.first, has_cycle);
   }
   txn_id_t youngest_txn_id = INVALID_TXN_ID;
@@ -521,10 +517,8 @@ auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
   return has_cycle.second != INVALID_TXN_ID;
 }
 
-void LockManager::Traverse(std::unordered_set<txn_id_t> &visited,
-                           std::unordered_map<txn_id_t, bool> &on_path,
-                           const std::unordered_map<txn_id_t, std::vector<txn_id_t>> &graph,
-                           txn_id_t s,
+void LockManager::Traverse(std::unordered_set<txn_id_t> &visited, std::unordered_map<txn_id_t, bool> &on_path,
+                           const std::unordered_map<txn_id_t, std::vector<txn_id_t>> &graph, txn_id_t s,
                            std::pair<bool, txn_id_t> &has_cycle) {
   auto path_it = on_path.find(s);
   if (path_it != on_path.end() && path_it->second) {
@@ -535,9 +529,9 @@ void LockManager::Traverse(std::unordered_set<txn_id_t> &visited,
   if (has_cycle.second == INVALID_TXN_ID && path_it == on_path.end()) {
     on_path.insert({s, true});
     path_it = on_path.find(s);
-  } 
+  }
 
-  if (has_cycle.second != INVALID_TXN_ID || visited.find(s) != visited.end()){
+  if (has_cycle.second != INVALID_TXN_ID || visited.find(s) != visited.end()) {
     return;
   }
   visited.insert(s);
@@ -631,7 +625,7 @@ void LockManager::RunCycleDetection() {
         }
       }
       /*=========================*/
-      
+
       LOG_DEBUG("Finish Construct The Graph");
 
       /*====== check cycle ======*/
@@ -640,7 +634,7 @@ void LockManager::RunCycleDetection() {
         LOG_DEBUG("Find Cycle!!!, youngest txn id is %d", youngest_txn_id);
         auto youngest_txn = TransactionManager::GetTransaction(youngest_txn_id);
         youngest_txn->SetState(TransactionState::ABORTED);
-        
+
         // relase the lock request
         auto lock_req_que = req_que_map_.find(youngest_txn_id)->second;
         std::shared_ptr<LockRequest> lock_req = nullptr;
@@ -655,7 +649,7 @@ void LockManager::RunCycleDetection() {
         LOG_DEBUG("remove correspond req in req queue");
         lock_req_que->request_queue_.remove(lock_req);
         lock_req_que->cv_.notify_all();
-        
+
         // remove edge in graph
         auto ves = waits_for_.find(youngest_txn_id)->second;
         for (const auto &v : ves) {
