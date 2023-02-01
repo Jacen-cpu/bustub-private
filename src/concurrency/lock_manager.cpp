@@ -14,13 +14,18 @@
 #include <sys/types.h>
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <iterator>
+#include <map>
 #include <memory>
+#include <mutex>  // NOLINT
+#include <queue>
 #include <shared_mutex>
 #include <thread>  // NOLINT
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "common/config.h"
 #include "common/exception.h"
@@ -34,20 +39,24 @@ static const uint8_t LOCK_COMPATIBLE_MATRIX[5][5] = {
     {1, 1, 1, 1, 0}, {1, 1, 0, 0, 0}, {1, 0, 1, 0, 0}, {1, 0, 0, 0, 0}, {0, 0, 0, 0, 0},
 };
 static const uint8_t LOCK_UPGRADE_COMPATIBLE_MATRIX[5][5]{
-    {0, 0, 1, 1, 1}, {0, 0, 0, 1, 1}, {0, 0, 0, 1, 1}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0},
+    {0, 1, 1, 1, 1}, {0, 0, 0, 1, 1}, {0, 0, 0, 1, 1}, {0, 0, 0, 0, 1}, {0, 0, 0, 0, 0},
 };
 
 auto LockManager::TryAcquireLock(Transaction *txn, const std::shared_ptr<LockRequestQueue> &queue, LockMode lock_mode)
     -> bool {
+  assert(!queue->request_queue_.empty());
+  LOG_DEBUG("queue size is %zu", queue->request_queue_.size());
   // check compatible
   for (const auto &req : queue->request_queue_) {
     if (req->granted_ && !CheckCompatible(req->lock_mode_, lock_mode) && req->txn_id_ != txn->GetTransactionId()) {
+      LOG_DEBUG("not compatible");
       return false;
     }
   }
   // check priority
   // upgrading
   if (queue->upgrading_ != INVALID_TXN_ID && queue->upgrading_ != txn->GetTransactionId()) {
+    LOG_DEBUG("upgrading but not me");
     return false;
   }
   if (queue->upgrading_ != INVALID_TXN_ID && queue->upgrading_ == txn->GetTransactionId()) {
@@ -56,15 +65,15 @@ auto LockManager::TryAcquireLock(Transaction *txn, const std::shared_ptr<LockReq
 
   // find first waiting request
   auto it = queue->request_queue_.begin();
-  std::list<std::shared_ptr<LockRequest>>::iterator first_waiting;
+  // std::list<std::shared_ptr<LockRequest>>::iterator first_waiting;
   for (; it != queue->request_queue_.end(); it++) {
     if (!(*it)->granted_) {
-      first_waiting = it;
+      // first_waiting = it;
       break;
     }
   }
 
-  if (!(*it)->granted_ && (*it)->txn_id_ == txn->GetTransactionId()) {
+  if ((*it)->txn_id_ == txn->GetTransactionId()) {
     return true;
   }
 
@@ -73,16 +82,19 @@ auto LockManager::TryAcquireLock(Transaction *txn, const std::shared_ptr<LockReq
   std::advance(it, 1);
   for (; it != queue->request_queue_.end(); it++) {
     compatible = compatible && CheckCompatible(prv_lock, (*it)->lock_mode_);
+    if ((*it)->txn_id_ == txn->GetTransactionId()) {
+      break;
+    }
     prv_lock = (*it)->lock_mode_;
   }
+  LOG_DEBUG("compatible is %d", compatible);
   return compatible;
 }
 
 auto LockManager::CheckCompatible(LockMode hold_lock_mode, LockMode want_lock_mode) -> bool {
   return LOCK_COMPATIBLE_MATRIX[static_cast<int>(hold_lock_mode)][static_cast<int>(want_lock_mode)] == 1U;
 }
-
-// *        IS -> [S, X, SIX]
+// *        IS -> [S, X, IX, SIX]
 // *        S -> [X, SIX]
 // *        IX -> [X, SIX]
 // *        SIX -> [X]
@@ -103,7 +115,7 @@ void LockManager::TxnInsertTableLock(Transaction *txn, LockMode lock_mode, const
       txn->GetSharedTableLockSet()->insert(oid);
       break;
     case LockMode::SHARED_INTENTION_EXCLUSIVE:
-      txn->GetIntentionSharedTableLockSet()->insert(oid);
+      txn->GetSharedIntentionExclusiveTableLockSet()->insert(oid);
       break;
     case LockMode::EXCLUSIVE:
       txn->GetExclusiveTableLockSet()->insert(oid);
@@ -114,19 +126,19 @@ void LockManager::TxnInsertTableLock(Transaction *txn, LockMode lock_mode, const
 void LockManager::TxnRemoveTableLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) {
   switch (lock_mode) {
     case LockMode::INTENTION_SHARED:
-      txn->GetIntentionSharedTableLockSet()->erase(oid);
+      txn->GetIntentionSharedTableLockSet()->erase(txn->GetIntentionSharedTableLockSet()->find(oid));
       break;
     case LockMode::INTENTION_EXCLUSIVE:
-      txn->GetIntentionExclusiveTableLockSet()->erase(oid);
+      txn->GetIntentionExclusiveTableLockSet()->erase(txn->GetIntentionExclusiveTableLockSet()->find(oid));
       break;
     case LockMode::SHARED:
-      txn->GetSharedTableLockSet()->erase(oid);
+      txn->GetSharedTableLockSet()->erase(txn->GetSharedTableLockSet()->find(oid));
       break;
     case LockMode::SHARED_INTENTION_EXCLUSIVE:
-      txn->GetIntentionSharedTableLockSet()->erase(oid);
+      txn->GetSharedIntentionExclusiveTableLockSet()->erase(txn->GetSharedIntentionExclusiveTableLockSet()->find(oid));
       break;
     case LockMode::EXCLUSIVE:
-      txn->GetExclusiveTableLockSet()->erase(oid);
+      txn->GetExclusiveTableLockSet()->erase(txn->GetExclusiveTableLockSet()->find(oid));
       break;
   }
 }
@@ -149,36 +161,46 @@ void LockManager::TxnInsertRowLock(Transaction *txn, LockMode lock_mode, const t
 
 void LockManager::TxnRemoveRowLock(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) {
   if (lock_mode == LockMode::SHARED) {
-    txn->GetSharedLockSet()->erase(rid);
-    txn->GetSharedRowLockSet()->find(oid)->second.erase(rid);
+    auto sls = txn->GetSharedLockSet();
+    auto &srls = txn->GetSharedRowLockSet()->find(oid)->second;
+    sls->erase(sls->find(rid));
+    srls.erase(srls.find(rid));
   } else {
-    txn->GetExclusiveLockSet()->erase(rid);
-    txn->GetExclusiveRowLockSet()->find(oid)->second.erase(rid);
+    auto xls = txn->GetExclusiveLockSet();
+    auto &xrls = txn->GetExclusiveRowLockSet()->find(oid)->second;
+    xls->erase(xls->find(rid));
+    xrls.erase(xrls.find(rid));
   }
 }
 
 auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
-  // try {
+  LOG_DEBUG("#TRY LOCK TABLE# #transaction:%d #lock_table:%d #lock_mode:%d, #isolation_level:%d",
+            txn->GetTransactionId(), oid, lock_mode, txn->GetIsolationLevel());
   /*=================== check txn state ========================*/
   if (txn->GetState() == TransactionState::ABORTED || txn->GetState() == TransactionState::COMMITTED) {
+    LOG_DEBUG("Impossible Error");
     throw Exception("Impossible Error!!!");
   }
   if (txn->GetState() == TransactionState::SHRINKING) {
     switch (txn->GetIsolationLevel()) {
       case IsolationLevel::REPEATABLE_READ:
         txn->SetState(TransactionState::ABORTED);
+        LOG_DEBUG("lock on shrinking");
         throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
       case IsolationLevel::READ_UNCOMMITTED:
         if (lock_mode == LockMode::INTENTION_EXCLUSIVE || lock_mode == LockMode::EXCLUSIVE) {
           txn->SetState(TransactionState::ABORTED);
+          LOG_DEBUG("lock on shrinking");
           throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
         } else {
           txn->SetState(TransactionState::ABORTED);
+          LOG_DEBUG("lock shared on read uncommited");
           throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
         }
       case IsolationLevel::READ_COMMITTED:
         if (lock_mode != LockMode::SHARED && lock_mode != LockMode::INTENTION_SHARED) {
           txn->SetState(TransactionState::ABORTED);
+          LOG_DEBUG("lock shared on shrinking");
           throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
         }
     }
@@ -187,30 +209,36 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
     if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED &&
         (lock_mode != LockMode::EXCLUSIVE && lock_mode != LockMode::INTENTION_EXCLUSIVE)) {
       txn->SetState(TransactionState::ABORTED);
+      LOG_DEBUG("lock shared on read uncommitted");
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
     }
   }
   /*============================================================*/
-  auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id()) % 100;
   table_lock_map_latch_.lock();
-  LOG_DEBUG("Thread %zu Try lock table %d", thread_id, oid);
   // create new lock request.
   auto lock_req = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid);
   // lock the request queue
   auto has_que = table_lock_map_.find(oid);
   // create new lock requeset queue
   if (has_que == table_lock_map_.end()) {
+    waits_for_latch_.lock();
     auto new_req_que = std::make_shared<LockRequestQueue>();
     lock_req->granted_ = true;
     new_req_que->request_queue_.emplace_back(lock_req);
     table_lock_map_.emplace(oid, new_req_que);
     TxnInsertTableLock(txn, lock_mode, oid);
     table_lock_map_latch_.unlock();
+    LOG_DEBUG("#FINISH LOCK TABLE# #transaction:%d #lock_table:%d #lock_mode:%d, #isolation_level:%d",
+              txn->GetTransactionId(), oid, lock_mode, txn->GetIsolationLevel());
+    waits_for_latch_.unlock();
     return true;
   }
 
   auto lock_req_que = has_que->second;
+  // lock the queue
   std::unique_lock<std::mutex> queue_lock(lock_req_que->latch_);
+  // lock the graph
+  std::unique_lock<std::mutex> graph_lock(waits_for_latch_);
   // release the map latch
   table_lock_map_latch_.unlock();
 
@@ -219,18 +247,20 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
                          [&](const auto &req) { return req->txn_id_ == txn->GetTransactionId(); });
   if (it != lock_req_que->request_queue_.end()) {
     // check
-    assert(lock_req_que->upgrading_ == INVALID_TXN_ID);
+    // assert(lock_req_que->upgrading_ == INVALID_TXN_ID);
     auto old_lock_mode = (*it)->lock_mode_;
     if (old_lock_mode == lock_mode) {
       return true;
     }
-    LOG_DEBUG("Start Upgrading");
-    if (lock_req_que->upgrading_ != INVALID_PAGE_ID) {
+    LOG_DEBUG("#UPGRADING#, #old_lock_mode:%d, new_lock_mode:%d", old_lock_mode, lock_mode);
+    if (lock_req_que->upgrading_ != INVALID_TXN_ID) {
       txn->SetState(TransactionState::ABORTED);
+      LOG_DEBUG("upgrade confilct");
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
     }
     if (!CheckUpgradingCompatible(old_lock_mode, lock_mode)) {
       txn->SetState(TransactionState::ABORTED);
+      LOG_DEBUG("incompatible upgrade");
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::INCOMPATIBLE_UPGRADE);
     }
     // upgrading
@@ -244,10 +274,20 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   lock_req_que->request_queue_.emplace_back(lock_req);
   /*================== try to acquire the lock =================*/
   while (!TryAcquireLock(txn, lock_req_que, lock_mode)) {
+    LOG_DEBUG("transaction %d lock fail, sleep!!!", txn->GetTransactionId());
+    graph_lock.unlock();
     lock_req_que->cv_.wait(queue_lock);
+    LOG_DEBUG("transaction %d wake up!!!", txn->GetTransactionId());
+    graph_lock.lock();
     if (txn->GetState() == TransactionState::ABORTED) {
-      assert(lock_req_que->upgrading_ != txn->GetTransactionId());
+      // assert(lock_req_que->upgrading_ != txn->GetTransactionId());
       // release resources
+      LOG_DEBUG("transaction %d Abort return false!!!", txn->GetTransactionId());
+      lock_req_que->request_queue_.remove(lock_req);
+      if (lock_req_que->upgrading_ == txn->GetTransactionId()) {
+        lock_req_que->upgrading_ = INVALID_TXN_ID;
+      }
+      lock_req_que->cv_.notify_all();
       return false;
     }
   }
@@ -256,6 +296,8 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
     lock_req_que->upgrading_ = INVALID_TXN_ID;
   }
 
+  LOG_DEBUG("#FINISH LOCK TABLE# #transaction:%d #lock_table:%d #lock_mode:%d, #isolation_level:%d",
+            txn->GetTransactionId(), oid, lock_mode, txn->GetIsolationLevel());
   // booking keeping
   TxnInsertTableLock(txn, lock_mode, oid);
   return true;
@@ -263,18 +305,47 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
 }
 
 auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool {
-  auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id()) % 100;
-
   // check row lock
-  if (!(txn->GetSharedLockSet()->empty() && txn->GetExclusiveLockSet()->empty())) {
+  bool has_x_row_lock = false;
+  bool has_s_row_lock = false;
+  auto has_x_row_set = txn->GetExclusiveRowLockSet()->find(oid);
+  auto has_s_row_set = txn->GetSharedRowLockSet()->find(oid);
+  if (has_x_row_set != txn->GetExclusiveRowLockSet()->end()) {
+    if (!has_x_row_set->second.empty()) {
+      has_x_row_lock = true;
+    }
+  }
+  if (has_s_row_set != txn->GetSharedRowLockSet()->end()) {
+    if (!has_s_row_set->second.empty()) {
+      has_s_row_lock = true;
+    }
+  }
+  if (has_x_row_lock || has_s_row_lock) {
     txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("table unlocked before unlocking rows");
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_UNLOCKED_BEFORE_UNLOCKING_ROWS);
   }
 
   table_lock_map_latch_.lock();
-  LOG_DEBUG("Thread %zu Try unlock table %d", thread_id, oid);
-  auto lock_req_que = table_lock_map_.find(oid)->second;
+  LOG_DEBUG("#TRY UNLOCK TABEL# #transaction:%d unlock_table:%d, txn_state:%d", txn->GetTransactionId(), oid,
+            txn->GetState());
+  auto has_que = table_lock_map_.find(oid);
+
+  /*------------------------------*/
+  if (has_que == table_lock_map_.end()) {
+    LOG_DEBUG("not found req que");
+    txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("attemped unlock but no lock held");
+    LOG_DEBUG("table map is empty? %d", table_lock_map_.empty());
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
+  }
+  /*------------------------------*/
+
+  auto lock_req_que = has_que->second;
+  // lock the queue
   std::unique_lock<std::mutex> queue_lock(lock_req_que->latch_);
+  // lock the graph
+  std::unique_lock<std::mutex> graph_lock(waits_for_latch_);
   // release the map latch
   table_lock_map_latch_.unlock();
 
@@ -285,10 +356,16 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
       break;
     }
   }
+
+  /*------------------------------*/
   if (request == nullptr) {
-    txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("not found req");
+    // txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("attemped unlock but no lock held");
+    lock_req_que->cv_.notify_all();
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
   }
+  /*------------------------------*/
 
   if (txn->GetState() == TransactionState::GROWING) {
     switch (txn->GetIsolationLevel()) {
@@ -308,49 +385,59 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
   // booking keeping
   TxnRemoveTableLock(txn, request->lock_mode_, oid);
   lock_req_que->request_queue_.remove(request);
-  LOG_DEBUG("Thread %zu notify all", thread_id);
+
+  LOG_DEBUG("#FINISH UNLOCK TABLE# #transaction:%d #unlock_table:%d, notify all", txn->GetTransactionId(), oid);
   lock_req_que->cv_.notify_all();
   return true;
 }
 
 auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool {
+  LOG_DEBUG("#TRY LOCK ROW# #transaction:%d lock_row:%d #lock_table:%d #lock_mode:%d, isolation level is %d",
+            txn->GetTransactionId(), rid.GetSlotNum(), oid, lock_mode, txn->GetIsolationLevel());
+  if (lock_mode != LockMode::EXCLUSIVE && lock_mode != LockMode::SHARED) {
+    txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("attemped intention lock on row");
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_INTENTION_LOCK_ON_ROW);
+  }
   /*=================== check table lock =======================*/
-  // try {
-  // bool is_table_lock = true;
-  // if (lock_mode == LockMode::SHARED) {
-  bool is_table_lock = txn->IsTableSharedLocked(oid) || txn->IsTableIntentionSharedLocked(oid) ||
-                       txn->IsTableSharedIntentionExclusiveLocked(oid) || txn->IsTableExclusiveLocked(oid) ||
-                       txn->IsTableIntentionExclusiveLocked(oid);
-  // } else {
-  // is_table_lock = txn->IsTableExclusiveLocked(oid) || txn->IsTableIntentionExclusiveLocked(oid) ||
-  // txn->IsTableSharedIntentionExclusiveLocked(oid);
-  // }
+  bool is_table_lock = lock_mode == LockMode::SHARED
+                           ? txn->IsTableSharedIntentionExclusiveLocked(oid) || txn->IsTableSharedLocked(oid) ||
+                                 txn->IsTableIntentionSharedLocked(oid) || txn->IsTableExclusiveLocked(oid) ||
+                                 txn->IsTableIntentionExclusiveLocked(oid)
+                           : txn->IsTableSharedIntentionExclusiveLocked(oid) || txn->IsTableExclusiveLocked(oid) ||
+                                 txn->IsTableIntentionExclusiveLocked(oid);
   if (!is_table_lock) {
     txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("table lock not present");
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
   }
   /*============================================================*/
 
   /*=================== check txn state ========================*/
   if (txn->GetState() == TransactionState::ABORTED || txn->GetState() == TransactionState::COMMITTED) {
+    LOG_DEBUG("Impossible Error!!!");
     throw Exception("Impossible Error!!!");
   }
   if (txn->GetState() == TransactionState::SHRINKING) {
     switch (txn->GetIsolationLevel()) {
       case IsolationLevel::REPEATABLE_READ:
         txn->SetState(TransactionState::ABORTED);
+        LOG_DEBUG("lock on shrinking");
         throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
       case IsolationLevel::READ_UNCOMMITTED:
         if (lock_mode == LockMode::INTENTION_EXCLUSIVE || lock_mode == LockMode::EXCLUSIVE) {
           txn->SetState(TransactionState::ABORTED);
+          LOG_DEBUG("lock on shrinking");
           throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
         } else {
           txn->SetState(TransactionState::ABORTED);
+          LOG_DEBUG("lock shared on read uncommitted");
           throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
         }
       case IsolationLevel::READ_COMMITTED:
         if (lock_mode != LockMode::SHARED && lock_mode != LockMode::INTENTION_SHARED) {
           txn->SetState(TransactionState::ABORTED);
+          LOG_DEBUG("lock on shrinking");
           throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
         }
     }
@@ -359,6 +446,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
     if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED &&
         (lock_mode != LockMode::EXCLUSIVE && lock_mode != LockMode::INTENTION_EXCLUSIVE)) {
       txn->SetState(TransactionState::ABORTED);
+      LOG_DEBUG("lock shared on read uncommitted");
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
     }
   }
@@ -371,17 +459,22 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   auto has_que = row_lock_map_.find(rid);
   // create new lock requeset queue
   if (has_que == row_lock_map_.end()) {
+    waits_for_latch_.lock();
     auto new_req_que = std::make_shared<LockRequestQueue>();
     lock_req->granted_ = true;
     new_req_que->request_queue_.emplace_back(lock_req);
     row_lock_map_.emplace(rid, new_req_que);
     TxnInsertRowLock(txn, lock_mode, oid, rid);
     row_lock_map_latch_.unlock();
+    waits_for_latch_.unlock();
     return true;
   }
 
   auto lock_req_que = has_que->second;
+  // lock the queue
   std::unique_lock<std::mutex> queue_lock(lock_req_que->latch_);
+  // lock the graph
+  std::unique_lock<std::mutex> graph_lock(waits_for_latch_);
   // release the map latch
   row_lock_map_latch_.unlock();
 
@@ -391,16 +484,18 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   if (it != lock_req_que->request_queue_.end()) {
     // check
     auto old_lock_mode = (*it)->lock_mode_;
-    assert(lock_req_que->upgrading_ == INVALID_TXN_ID);
+    // assert(lock_req_que->upgrading_ == INVALID_TXN_ID);
     if (old_lock_mode == lock_mode) {
       return true;
     }
     if (lock_req_que->upgrading_ != INVALID_PAGE_ID) {
       txn->SetState(TransactionState::ABORTED);
+      LOG_DEBUG("upgrade conflict");
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
     }
     if (!CheckUpgradingCompatible(old_lock_mode, lock_mode)) {
       txn->SetState(TransactionState::ABORTED);
+      LOG_DEBUG("incompatible upgrade");
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::INCOMPATIBLE_UPGRADE);
     }
     // upgrading
@@ -414,10 +509,20 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   lock_req_que->request_queue_.emplace_back(lock_req);
   /*================== try to acquire the lock =================*/
   while (!TryAcquireLock(txn, lock_req_que, lock_mode)) {
+    LOG_DEBUG("transaction %d lock fail, sleep!!!", txn->GetTransactionId());
+    graph_lock.unlock();
     lock_req_que->cv_.wait(queue_lock);
+    graph_lock.lock();
+    LOG_DEBUG("transaction %d wake up!!!", txn->GetTransactionId());
     if (txn->GetState() == TransactionState::ABORTED) {
-      assert(lock_req_que->upgrading_ != txn->GetTransactionId());
+      // assert(lock_req_que->upgrading_ != txn->GetTransactionId());
       // release resources
+      LOG_DEBUG("transaction %d Abort return false!!!", txn->GetTransactionId());
+      lock_req_que->request_queue_.remove(lock_req);
+      lock_req_que->cv_.notify_all();
+      if (lock_req_que->upgrading_ == txn->GetTransactionId()) {
+        lock_req_que->upgrading_ = INVALID_TXN_ID;
+      }
       return false;
     }
   }
@@ -426,10 +531,9 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
     lock_req_que->upgrading_ = INVALID_TXN_ID;
   }
   /*===========================================================*/
-  // } catch (TransactionAbortException e) {
-  // LOG_DEBUG("%s", e.GetInfo().c_str());
-  // }
 
+  LOG_DEBUG("#FINISH LOCK LOW# #transaction:%d lock_row:%d #lock_table:%d #lock_mode:%d, isolation level is %d",
+            txn->GetTransactionId(), rid.GetSlotNum(), oid, lock_mode, txn->GetIsolationLevel());
   // booking keeping
   TxnInsertRowLock(txn, lock_mode, oid, rid);
   return true;
@@ -437,8 +541,23 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid) -> bool {
   row_lock_map_latch_.lock();
+  auto has_que = row_lock_map_.find(rid);
+
+  LOG_DEBUG("#TRY UNLOCK LOW# #transaction:%d unlock_row:%d #lock_table:%d isolation level is %d",
+            txn->GetTransactionId(), rid.GetSlotNum(), oid, txn->GetIsolationLevel());
+  /*------------------------------*/
+  if (has_que == row_lock_map_.end()) {
+    txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("attempted unlock but no lock held");
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
+  }
+  /*------------------------------*/
+
   auto lock_req_que = row_lock_map_.find(rid)->second;
+  // lock the queue
   std::lock_guard<std::mutex> queue_lock(lock_req_que->latch_);
+  // lock the graph
+  std::unique_lock<std::mutex> graph_lock(waits_for_latch_);
   // release the map latch
   row_lock_map_latch_.unlock();
 
@@ -449,10 +568,15 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
       break;
     }
   }
+
+  /*------------------------------*/
   if (request == nullptr) {
     txn->SetState(TransactionState::ABORTED);
+    LOG_DEBUG("attempted unlock but no lock held");
+    lock_req_que->cv_.notify_all();
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
   }
+  /*------------------------------*/
 
   if (txn->GetState() == TransactionState::GROWING) {
     switch (txn->GetIsolationLevel()) {
@@ -469,6 +593,9 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
         break;
     }
   }
+
+  LOG_DEBUG("#FINSIH UNLOCK LOW# #transaction:%d unlock_row:%d #lock_table:%d isolation level is %d",
+            txn->GetTransactionId(), rid.GetSlotNum(), oid, txn->GetIsolationLevel());
   // booking keeping
   TxnRemoveRowLock(txn, request->lock_mode_, oid, rid);
   lock_req_que->request_queue_.remove(request);
@@ -503,12 +630,18 @@ auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
   std::unordered_set<txn_id_t> visited{};
   std::unordered_map<txn_id_t, bool> on_path{};
   std::pair<bool, txn_id_t> has_cycle = std::make_pair(false, INVALID_TXN_ID);
-  for (const auto &edge_pair : waits_for_) {
-    Traverse(visited, on_path, waits_for_, edge_pair.first, has_cycle);
+  std::priority_queue<txn_id_t, std::vector<int>, std::greater<>> order_start;
+  for (const auto &[k, v] : waits_for_) {
+    order_start.push(k);
   }
+  while (!order_start.empty()) {
+    Traverse(visited, on_path, waits_for_, order_start.top(), has_cycle);
+    order_start.pop();
+  }
+
   txn_id_t youngest_txn_id = INVALID_TXN_ID;
   for (const auto &path_txn : on_path) {
-    LOG_DEBUG("v is %d, bool is %d", path_txn.first, path_txn.second);
+    // LOG_DEBUG("v is %d, bool is %d", path_txn.first, path_txn.second);
     if (path_txn.second && path_txn.first > youngest_txn_id) {
       youngest_txn_id = path_txn.first;
     }
@@ -573,27 +706,45 @@ void LockManager::RunCycleDetection() {
     std::this_thread::sleep_for(cycle_detection_interval);
     waits_for_.clear();
     req_que_map_.clear();
+    std::lock_guard<std::mutex> lock(waits_for_latch_);
+    LOG_DEBUG("+++++++++++++++++++++++++++++++++++");
     {
       /*======== for table =======*/
       for (const auto &req_pair : table_lock_map_) {
         // find first wait
+        // find all wait req
+        /*--------------------------------------------------------*/
         auto it = req_pair.second->request_queue_.begin();
+        std::list<std::shared_ptr<LockRequest>>::iterator first_wait;
         for (; it != req_pair.second->request_queue_.end(); it++) {
           if (!(*it)->granted_) {
+            first_wait = it;
             break;
           }
         }
         if (it == req_pair.second->request_queue_.end()) {
           continue;
         }
-        auto itt = req_pair.second->request_queue_.begin();
-        for (; itt != it; itt++) {
-          if (!CheckCompatible((*itt)->lock_mode_, (*it)->lock_mode_)) {
-            // add edge
-            AddEdge((*it)->txn_id_, (*itt)->txn_id_);
-            // add into request queue map
-            assert(!(*it)->granted_);
-            req_que_map_.insert({(*it)->txn_id_, req_pair.second});
+        /*--------------------------------------------------------*/
+        LockMode prev_mode = (*first_wait)->lock_mode_;
+        for (; it != req_pair.second->request_queue_.end(); it++) {
+          if (it == first_wait || CheckCompatible(prev_mode, (*it)->lock_mode_)) {
+            /*--------------------------------------------------------*/
+            auto itt = req_pair.second->request_queue_.begin();
+            for (; itt != first_wait; itt++) {
+              if (!CheckCompatible((*itt)->lock_mode_, (*it)->lock_mode_)) {
+                // add edge
+                AddEdge((*it)->txn_id_, (*itt)->txn_id_);
+                LOG_DEBUG("Add edge txn%d to txn%d", (*it)->txn_id_, (*itt)->txn_id_);
+                // add into request queue map
+                assert(!(*it)->granted_);
+                req_que_map_.insert({(*it)->txn_id_, req_pair.second});
+              }
+            }
+            prev_mode = (*it)->lock_mode_;
+            /*--------------------------------------------------------*/
+          } else {
+            break;
           }
         }
       }
@@ -602,30 +753,43 @@ void LockManager::RunCycleDetection() {
       /*======== for row =======*/
       for (const auto &req_pair : row_lock_map_) {
         // find first wait
+        // find all wait req
+        /*--------------------------------------------------------*/
         auto it = req_pair.second->request_queue_.begin();
+        std::list<std::shared_ptr<LockRequest>>::iterator first_wait;
         for (; it != req_pair.second->request_queue_.end(); it++) {
           if (!(*it)->granted_) {
+            first_wait = it;
             break;
           }
         }
         if (it == req_pair.second->request_queue_.end()) {
           continue;
         }
-        auto itt = req_pair.second->request_queue_.begin();
-        // add edge
-        for (; itt != it; itt++) {
-          if (!CheckCompatible((*itt)->lock_mode_, (*it)->lock_mode_)) {
-            // add edge
-            AddEdge((*it)->txn_id_, (*itt)->txn_id_);
-            // add into request queue map
-            LOG_DEBUG("Add edge txn%d to txn%d", (*it)->txn_id_, (*itt)->txn_id_);
-            assert(!(*it)->granted_);
-            req_que_map_.insert({(*it)->txn_id_, req_pair.second});
+        /*--------------------------------------------------------*/
+        LockMode prev_mode = (*first_wait)->lock_mode_;
+        for (; it != req_pair.second->request_queue_.end(); it++) {
+          if (it == first_wait || CheckCompatible(prev_mode, (*it)->lock_mode_)) {
+            /*--------------------------------------------------------*/
+            auto itt = req_pair.second->request_queue_.begin();
+            for (; itt != first_wait; itt++) {
+              if (!CheckCompatible((*itt)->lock_mode_, (*it)->lock_mode_)) {
+                // add edge
+                AddEdge((*it)->txn_id_, (*itt)->txn_id_);
+                LOG_DEBUG("Add edge txn%d to txn%d", (*it)->txn_id_, (*itt)->txn_id_);
+                // add into request queue map
+                assert(!(*it)->granted_);
+                req_que_map_.insert({(*it)->txn_id_, req_pair.second});
+              }
+            }
+            prev_mode = (*it)->lock_mode_;
+            /*--------------------------------------------------------*/
+          } else {
+            break;
           }
         }
       }
       /*=========================*/
-
       LOG_DEBUG("Finish Construct The Graph");
 
       /*====== check cycle ======*/
@@ -637,17 +801,6 @@ void LockManager::RunCycleDetection() {
 
         // relase the lock request
         auto lock_req_que = req_que_map_.find(youngest_txn_id)->second;
-        std::shared_ptr<LockRequest> lock_req = nullptr;
-        for (const auto &req : lock_req_que->request_queue_) {
-          if (req->txn_id_ == youngest_txn_id) {
-            lock_req = req;
-            break;
-          }
-        }
-        assert(lock_req != nullptr);
-        assert(!lock_req->granted_);
-        LOG_DEBUG("remove correspond req in req queue");
-        lock_req_que->request_queue_.remove(lock_req);
         lock_req_que->cv_.notify_all();
 
         // remove edge in graph
@@ -657,6 +810,7 @@ void LockManager::RunCycleDetection() {
         }
       }
       /*=========================*/
+      LOG_DEBUG("+++++++++++++++++++++++++++++++++++");
     }
   }
 }

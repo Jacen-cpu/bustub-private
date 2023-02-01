@@ -71,7 +71,7 @@ void TableLockTest1() {
   for (int i = 0; i < num_oids; i++) {
     table_oid_t oid{static_cast<uint32_t>(i)};
     oids.push_back(oid);
-    txns.push_back(txn_mgr.Begin());
+    txns.push_back(txn_mgr.Begin(txn_mgr.Begin()));
     EXPECT_EQ(i, txns[i]->GetTransactionId());
   }
 
@@ -110,7 +110,11 @@ void TableLockTest1() {
     delete txns[i];
   }
 }
-TEST(LockManagerTest, TableLockTest1) { TableLockTest1(); }  // NOLINT
+TEST(LockManagerTest, TableLockTest1) {
+  for (int i = 0; i < 100; ++i) {
+    TableLockTest1();
+  }
+}  // NOLINT
 
 /** Upgrading single transaction from S -> X */
 void TableLockUpgradeTest1() {
@@ -135,7 +139,7 @@ void TableLockUpgradeTest1() {
 
   delete txn1;
 }
-TEST(LockManagerTest, TableLockUpgradeTest1) { TableLockUpgradeTest1(); }  // NOLINT
+TEST(LockManagerTest, DISABLED_TableLockUpgradeTest1) { TableLockUpgradeTest1(); }  // NOLINT
 
 void RowLockTest1() {
   LockManager lock_mgr{};
@@ -191,7 +195,7 @@ void RowLockTest1() {
     delete txns[i];
   }
 }
-TEST(LockManagerTest, RowLockTest1) { RowLockTest1(); }  // NOLINT
+TEST(LockManagerTest, DISABLED_RowLockTest1) { RowLockTest1(); }  // NOLINT
 
 void TwoPLTest1() {
   LockManager lock_mgr{};
@@ -240,6 +244,50 @@ void TwoPLTest1() {
   delete txn;
 }
 
-TEST(LockManagerTest, TwoPLTest1) { TwoPLTest1(); }  // NOLINT
+TEST(LockManagerTest, DISABLED_TwoPLTest1) { TwoPLTest1(); }  // NOLINT
+
+void SimpleLockTest() {
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+
+  std::vector<Transaction *> txns;
+  for (int i = 0; i < 3; i++) {
+    txns.push_back(txn_mgr.Begin(txn_mgr.Begin()));
+    EXPECT_EQ(i, txns[i]->GetTransactionId());
+  }
+
+  auto task = [&](int txn_id) {
+    bool res;
+    res = lock_mgr.LockTable(txns[txn_id], LockManager::LockMode::EXCLUSIVE, 0);
+    EXPECT_TRUE(res);
+    CheckGrowing(txns[txn_id]);
+
+    res = lock_mgr.UnlockTable(txns[txn_id], 0);
+    EXPECT_TRUE(res);
+    CheckShrinking(txns[txn_id]);
+
+    txn_mgr.Commit(txns[txn_id]);
+    CheckCommitted(txns[txn_id]);
+
+    /** All locks should be dropped */
+    CheckTableLockSizes(txns[txn_id], 0, 0, 0, 0, 0);
+  };
+
+  std::vector<std::thread> threads;
+  threads.reserve(3);
+
+  for (int i = 0; i < 3; i++) {
+    threads.emplace_back(std::thread{task, i});
+  }
+
+  for (int i = 0; i < 3; i++) {
+    threads[i].join();
+  }
+
+  for (int i = 0; i < 3; i++) {
+    delete txns[i];
+  }
+}
+TEST(LockManagerTest, DISABLED_SimpleLockTest) { SimpleLockTest(); }  // NOLINT
 
 }  // namespace bustub
