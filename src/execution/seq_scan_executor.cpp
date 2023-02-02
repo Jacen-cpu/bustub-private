@@ -30,40 +30,47 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
 void SeqScanExecutor::Init() {
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
   table_iter_ = table_info_->table_->Begin(exec_ctx_->GetTransaction());
+  auto txn = exec_ctx_->GetTransaction();
+  auto lm = exec_ctx_->GetLockManager();
   // acquire the lock
-  if (exec_ctx_->GetTransaction()->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED) {
-    if (!exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(), LockManager::LockMode::SHARED,
-                                                table_info_->oid_)) {
-      LOG_DEBUG("DeadLock???");
-      // throw TransactionAbortException(exec_ctx_->GetTransaction()->GetTransactionId(), AbortReason::DEADLOCK);
-      throw Exception("error");
+  if (txn->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED) {
+    if (!txn->IsTableIntentionExclusiveLocked(table_info_->oid_)) {
+      if (!lm->LockTable(exec_ctx_->GetTransaction(), LockManager::LockMode::INTENTION_SHARED, table_info_->oid_)) {
+        throw Exception("Execute Error!!!");
+      }
+    } else {
+      if (!lm->LockTable(txn, LockManager::LockMode::SHARED_INTENTION_EXCLUSIVE, table_info_->oid_)) {
+        throw Exception("Execute Error!!!");
+      }
     }
   }
 }
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
+  auto txn = exec_ctx_->GetTransaction();
+  auto lm = exec_ctx_->GetLockManager();
   if (table_iter_ == table_info_->table_->End()) {
-    if (exec_ctx_->GetTransaction()->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED) {
-      exec_ctx_->GetLockManager()->UnlockTable(exec_ctx_->GetTransaction(), table_info_->oid_);
+    if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+      lm->UnlockTable(txn, table_info_->oid_);
     }
     return false;
   }
   /* == lock row == */
-  if (exec_ctx_->GetTransaction()->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED) {
-    if (!exec_ctx_->GetLockManager()->LockRow(exec_ctx_->GetTransaction(), LockManager::LockMode::SHARED,
-                                              table_info_->oid_, table_iter_->GetRid())) {
-      // throw TransactionAbortException(exec_ctx_->GetTransaction()->GetTransactionId(), AbortReason::DEADLOCK);
-      throw Exception("error");
+  if (txn->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED) {
+    // if (!txn->IsRowExclusiveLocked(table_info_->oid_, table_iter_->GetRid())) {
+    if (!lm->LockRow(txn, LockManager::LockMode::SHARED, table_info_->oid_, table_iter_->GetRid())) {
+      throw Exception("Execute Error!!!");
     }
+    // }
   }
   *tuple = *table_iter_;
   *rid = tuple->GetRid();
-  table_iter_++;
-
   /* == unlock row == */
-  if (exec_ctx_->GetTransaction()->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
-    exec_ctx_->GetLockManager()->UnlockRow(exec_ctx_->GetTransaction(), table_info_->oid_, table_iter_->GetRid());
+  if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+    lm->UnlockRow(txn, table_info_->oid_, table_iter_->GetRid());
   }
+
+  table_iter_++;
   return true;
 }
 }  // namespace bustub

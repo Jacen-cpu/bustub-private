@@ -18,6 +18,7 @@
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
+#include "execution/expressions/abstract_expression.h"
 #include "execution/plans/update_plan.h"
 #include "storage/table/tuple.h"
 #include "type/value_factory.h"
@@ -58,11 +59,14 @@ class UpdateExecutor : public AbstractExecutor {
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); }
 
  private:
+  // auto GenerateUpdatedTuple(const Tuple &src_tuple) -> Tuple;
   /** The update plan node to be executed */
   const UpdatePlanNode *plan_;
   /** Metadata identifying the table that should be updated */
   const TableInfo *table_info_;
   /** The child executor to obtain value from */
   std::unique_ptr<AbstractExecutor> child_executor_;
+
+  std::vector<AbstractExpressionRef>::const_iterator exps_iter_;
 };
 }  // namespace bustub

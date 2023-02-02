@@ -26,10 +26,13 @@ DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *
 void DeleteExecutor::Init() {
   child_executor_->Init();
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->TableOid());
+  auto txn = exec_ctx_->GetTransaction();
+  auto lm = exec_ctx_->GetLockManager();
   /* == Lock Table == */
   try {
-    exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(), LockManager::LockMode::EXCLUSIVE,
-                                           table_info_->oid_);
+    if (txn->GetIsolationLevel() == IsolationLevel::REPEATABLE_READ) {
+      lm->LockTable(txn, LockManager::LockMode::INTENTION_EXCLUSIVE, table_info_->oid_);
+    }
   } catch (TransactionAbortException &e) {
     LOG_INFO("%s", e.GetInfo().c_str());
     throw e;
@@ -44,6 +47,8 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   RID tmp_rid{};
   auto table_indexes = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
   int32_t delete_num = 0;
+  auto txn = exec_ctx_->GetTransaction();
+  auto lm = exec_ctx_->GetLockManager();
 
   while (true) {
     try {
@@ -56,10 +61,9 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     }
 
     /* == Lock Row == */
-    exec_ctx_->GetLockManager()->LockRow(exec_ctx_->GetTransaction(), LockManager::LockMode::EXCLUSIVE,
-                                         table_info_->oid_, tmp_rid);
+    lm->LockRow(txn, LockManager::LockMode::EXCLUSIVE, table_info_->oid_, tmp_rid);
 
-    if (!table_info_->table_->MarkDelete(tmp_rid, exec_ctx_->GetTransaction())) {
+    if (!table_info_->table_->MarkDelete(tmp_rid, txn)) {
       return false;
     }
     // update the index
@@ -71,19 +75,12 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
         key_attrs.push_back(table_info_->schema_.GetColIdx(col.GetName()));
       }
       tree->DeleteEntry(child_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs), tmp_rid,
-                        exec_ctx_->GetTransaction());
+                        txn);
     }
     delete_num++;
-
-    // /* == Unlock Low == */
-    // if (exec_ctx_->GetTransaction()->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
-    // exec_ctx_->GetLockManager()->UnlockRow(exec_ctx_->GetTransaction(), table_info_->oid_, tmp_rid);
-    // }
   }
   is_fin_ = true;
   *tuple = Tuple{std::vector<Value>{Value{TypeId::INTEGER, delete_num}}, &GetOutputSchema()};
-  // /* == Unlock Table == */
-  // exec_ctx_->GetLockManager()->UnlockTable(exec_ctx_->GetTransaction(), table_info_->oid_);
   return true;
 }
 

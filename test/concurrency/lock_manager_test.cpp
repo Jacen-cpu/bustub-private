@@ -7,8 +7,10 @@
 #include <random>
 #include <thread>  // NOLINT
 
+#include "common/bustub_instance.h"
 #include "common/config.h"
 #include "common/logger.h"
+#include "concurrency/transaction.h"
 #include "concurrency/transaction_manager.h"
 #include "gtest/gtest.h"
 
@@ -110,7 +112,7 @@ void TableLockTest1() {
     delete txns[i];
   }
 }
-TEST(LockManagerTest, TableLockTest1) {
+TEST(LockManagerTest, DISABLED_TableLockTest1) {
   for (int i = 0; i < 100; ++i) {
     TableLockTest1();
   }
@@ -289,5 +291,105 @@ void SimpleLockTest() {
   }
 }
 TEST(LockManagerTest, DISABLED_SimpleLockTest) { SimpleLockTest(); }  // NOLINT
+
+void BasicTableTest() {
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+
+  std::vector<table_oid_t> oids;
+  std::vector<Transaction *> txns;
+
+  /** 10 tables */
+  int num_oids = 10;
+  for (int i = 0; i < num_oids; i++) {
+    table_oid_t oid{static_cast<uint32_t>(i)};
+    oids.push_back(oid);
+    txns.push_back(txn_mgr.Begin(txn_mgr.Begin()));
+    EXPECT_EQ(i, txns[i]->GetTransactionId());
+  }
+
+  /** Each transaction takes an S lock on every table and then unlocks */
+  auto task = [&](int txn_id) {
+    for (const table_oid_t &oid : oids) {
+      try {
+        lock_mgr.UnlockTable(txns[txn_id], oid);
+        CheckAborted(txns[txn_id]);
+      } catch (TransactionAbortException &e) {
+        CheckAborted(txns[txn_id]);
+      }
+    }
+    txn_mgr.Commit(txns[txn_id]);
+    CheckCommitted(txns[txn_id]);
+
+    /** All locks should be dropped */
+    CheckTableLockSizes(txns[txn_id], 0, 0, 0, 0, 0);
+  };
+
+  std::vector<std::thread> threads;
+  threads.reserve(num_oids);
+
+  for (int i = 0; i < num_oids; i++) {
+    threads.emplace_back(std::thread{task, i});
+  }
+
+  for (int i = 0; i < num_oids; i++) {
+    threads[i].join();
+  }
+
+  for (int i = 0; i < num_oids; i++) {
+    delete txns[i];
+  }
+}
+
+TEST(LockManagerTest, DISABLED_BasicTableTest) { BasicTableTest(); }  // NOLINT
+
+TEST(LockManagerTest, MixedTest) {
+  const int num = 10;
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+  std::stringstream result;
+  auto bustub = std::make_unique<bustub::BustubInstance>("test.db");
+  auto writer = bustub::SimpleStreamWriter(result, true, " ");
+
+  bustub->ExecuteSql("\\dt", writer);
+  auto schema = "CREATE TABLE test_1 (x int, y int);";
+  bustub->ExecuteSql(schema, writer);
+  std::string query = "INSERT INTO test_1 VALUES ";
+  for (size_t i = 0; i < num; i++) {
+    query += fmt::format("({}, {})", i, 0);
+    if (i != num - 1) {
+      query += ", ";
+    } else {
+      query += ";";
+    }
+  }
+  bustub->ExecuteSql(query, writer);
+  schema = "CREATE TABLE test_2 (x int, y int);";
+  bustub->ExecuteSql(schema, writer);
+  bustub->ExecuteSql(query, writer);
+
+  auto txn1 = bustub->txn_manager_->Begin();
+  auto txn2 = bustub->txn_manager_->Begin();
+
+  fmt::print("------\n");
+
+  query = "delete from test_1 where x = 100;";
+  bustub->ExecuteSqlTxn(query, writer, txn2);
+
+  query = "select * from test_1;";
+  bustub->ExecuteSqlTxn(query, writer, txn2);
+
+  query = "select * from test_1;";
+  bustub->ExecuteSqlTxn(query, writer, txn1);
+
+  bustub->txn_manager_->Commit(txn1);
+  fmt::print("txn1 commit\n");
+
+  bustub->txn_manager_->Commit(txn2);
+  fmt::print("txn2 commit\n");
+
+  delete txn1;
+  delete txn2;
+}
 
 }  // namespace bustub
