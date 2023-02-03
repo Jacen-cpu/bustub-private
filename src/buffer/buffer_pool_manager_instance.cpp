@@ -230,4 +230,13 @@ void BufferPoolManagerInstance::ResetPage(Page *page) {
   page->pin_count_ = 0;
 }
 
+void BufferPoolManagerInstance::ReadPageToPool(page_id_t page_id, frame_id_t target_frame) {
+  Page *target = pages_ + target_frame;
+  disk_manager_->ReadPage(page_id, target->data_);
+  target->page_id_ = page_id;
+  target->is_dirty_ = false;
+  target->pin_count_ = 0;
+  page_table_->Insert(page_id, target_frame);
+}
+
 }  // namespace bustub

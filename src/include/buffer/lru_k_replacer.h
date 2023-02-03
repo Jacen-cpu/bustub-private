@@ -146,14 +146,11 @@ class LRUKReplacer {
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
   size_t curr_size_{0};
-
   std::unordered_map<frame_id_t, Frame> frames_;
   std::deque<frame_id_t> cached_queue_;
   std::deque<frame_id_t> no_cached_queue_;
-
   size_t replacer_size_;
   size_t k_;
-
   std::mutex latch_;
 
   inline auto CheckFrame(frame_id_t frame_id) -> bool { return static_cast<size_t>(frame_id) <= replacer_size_; }

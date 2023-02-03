@@ -179,15 +179,7 @@ class BufferPoolManagerInstance : public BufferPoolManager {
 
   // TODO(student): You may add additional private members and helper functions
  private:
-  // inline void WriteBackDrity(Page *dirty_page);
-  inline void ReadPageToPool(page_id_t page_id, frame_id_t target_frame) {
-    Page *target = pages_ + target_frame;
-    disk_manager_->ReadPage(page_id, target->data_);
-    target->page_id_ = page_id;
-    target->is_dirty_ = false;
-    target->pin_count_ = 0;
-    page_table_->Insert(page_id, target_frame);
-  }
+  void ReadPageToPool(page_id_t page_id, frame_id_t target_frame);
   void ResetPage(Page *page);
 };
 }  // namespace bustub

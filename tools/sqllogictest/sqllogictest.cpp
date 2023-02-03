@@ -174,7 +174,7 @@ auto main(int argc, char **argv) -> int {  // NOLINT
   std::unique_ptr<bustub::BustubInstance> bustub;
 
   if (program.get<bool>("--in-memory")) {
-    bustub = std::make_unique<bustub::BustubInstance>();
+    // bustub = std::make_unique<bustub::BustubInstance>();
   } else {
     bustub = std::make_unique<bustub::BustubInstance>("test.db");
   }
