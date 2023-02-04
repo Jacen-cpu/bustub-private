@@ -179,7 +179,6 @@ class BufferPoolManagerInstance : public BufferPoolManager {
 
   // TODO(student): You may add additional private members and helper functions
  private:
-  void ReadPageToPool(page_id_t page_id, frame_id_t target_frame);
-  void ResetPage(Page *page);
+
 };
 }  // namespace bustub

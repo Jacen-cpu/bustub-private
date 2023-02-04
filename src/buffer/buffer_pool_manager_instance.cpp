@@ -40,62 +40,45 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   std::lock_guard<std::mutex> lock(latch_);
-
   page_id_t new_page_id = AllocatePage();
   *page_id = new_page_id;
-
   Page *target = nullptr;
   frame_id_t target_frame;
   if (!free_list_.empty()) {
     // find in free list
     target_frame = free_list_.back();
     free_list_.pop_back();
-
     target = pages_ + target_frame;
-
-    target->page_id_ = new_page_id;
-    target->is_dirty_ = false;
-    target->pin_count_ = 1;
-    target->ResetMemory();
-    page_table_->Insert(new_page_id, target_frame);
-
-    replacer_->RecordAccess(target_frame);
-    replacer_->SetEvictable(target_frame, false);
-
   } else {
-    // find in replacable page the pin count is zero.
+    // try evict
     if (!replacer_->Evict(&target_frame)) {
       return nullptr;
     }
-
     target = pages_ + target_frame;
     // write back to disk
     if (target->is_dirty_) {
       disk_manager_->WritePage(target->page_id_, target->data_);
     }
-
     page_table_->Remove(target->page_id_);
-    // replace the page
-    target->page_id_ = new_page_id;
-    target->is_dirty_ = false;
-    target->pin_count_ = 1;
-    target->ResetMemory();
-    page_table_->Insert(new_page_id, target_frame);
-
-    replacer_->RecordAccess(target_frame);
-    replacer_->SetEvictable(target_frame, false);
   }
-
+  // init the new page
+  target->page_id_ = new_page_id;
+  target->is_dirty_ = false;
+  target->pin_count_ = 1;
+  target->ResetMemory();
+  // update page table
+  page_table_->Insert(new_page_id, target_frame);
+  // update the replacer
+  replacer_->RecordAccess(target_frame);
+  replacer_->SetEvictable(target_frame, false);
   return target;
 }
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   std::lock_guard<std::mutex> lock(latch_);
-
   Page *target = nullptr;
   frame_id_t target_frame;
-
-  // can find
+  /* can find in buffer pool */
   if (page_table_->Find(page_id, target_frame)) {
     target = pages_ + target_frame;
     target->pin_count_++;
@@ -104,49 +87,42 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
     return target;
   }
 
-  // can not find
+  /* can't find in buffer pool */
   if (!free_list_.empty()) {
     // find in free list
     target_frame = free_list_.back();
     free_list_.pop_back();
-
     target = pages_ + target_frame;
-    ReadPageToPool(page_id, target_frame);
-    target->pin_count_++;
-    replacer_->RecordAccess(target_frame);
-    replacer_->SetEvictable(target_frame, false);
-
   } else {
-    // find in replacable page the pin count is zero.
+    // try evict
     if (!replacer_->Evict(&target_frame)) {
       return nullptr;
     }
-
     target = pages_ + target_frame;
     // write back to disk
     if (target->is_dirty_) {
       disk_manager_->WritePage(target->page_id_, target->data_);
-      target->is_dirty_ = false;
     }
-
     page_table_->Remove(target->page_id_);
-
-    // replace the page just cover!!!
-    ReadPageToPool(page_id, target_frame);
-    target->pin_count_++;
-    replacer_->RecordAccess(target_frame);
-    replacer_->SetEvictable(target_frame, false);
   }
-
+  target->ResetMemory();
+  disk_manager_->ReadPage(page_id, target->data_);
+  // init the page
+  target->page_id_ = page_id;
+  target->is_dirty_ = false;
+  target->pin_count_ = 1;
+  // update page table
+  page_table_->Insert(page_id, target_frame);
+  // update replacer
+  replacer_->RecordAccess(target_frame);
+  replacer_->SetEvictable(target_frame, false);
   return target;
 }
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
-
   frame_id_t target_frame;
   Page *target = nullptr;
-
   if (page_table_->Find(page_id, target_frame)) {
     target = pages_ + target_frame;
     if (target->pin_count_ <= 0) {
@@ -155,38 +131,30 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
   } else {
     return false;
   }
-
   target->pin_count_--;
   if (target->pin_count_ <= 0) {
     replacer_->SetEvictable(target_frame, true);
   }
-
   target->is_dirty_ = is_dirty || target->is_dirty_;
-
   return true;
 }
 
 auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
-
   frame_id_t target_frame;
   Page *target = nullptr;
-
   if (page_table_->Find(page_id, target_frame)) {
     target = pages_ + target_frame;
   } else {
     return false;
   }
-
   disk_manager_->WritePage(target->page_id_, target->data_);
   target->is_dirty_ = false;
-
   return true;
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   std::lock_guard<std::mutex> lock(latch_);
-
   Page *target = pages_;
   for (size_t i = 0; i < pool_size_; ++i) {
     target += i;
@@ -199,44 +167,29 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
-
   frame_id_t target_frame;
   Page *target = nullptr;
-
   if (page_table_->Find(page_id, target_frame)) {
     target = pages_ + target_frame;
     if (target->pin_count_ > 0) {
       return false;
     }
-  } else {
-    return true;
-  }
-
-  page_table_->Remove(page_id);
-  replacer_->Remove(target_frame);
-  free_list_.push_back(target_frame);
-
-  ResetPage(target);
-  DeallocatePage(page_id);
+    // reset the target page
+    target->ResetMemory();
+    target->page_id_ = INVALID_PAGE_ID;
+    target->is_dirty_ = false;
+    target->pin_count_ = 0;
+    // update page table
+    page_table_->Remove(page_id);
+    // update replacer
+    replacer_->Remove(target_frame);
+    // update free list
+    free_list_.push_back(target_frame);
+    DeallocatePage(page_id);
+  } 
   return true;
 }
 
 auto BufferPoolManagerInstance::AllocatePage() -> page_id_t { return next_page_id_++; }
-
-void BufferPoolManagerInstance::ResetPage(Page *page) {
-  page->ResetMemory();
-  page->page_id_ = INVALID_PAGE_ID;
-  page->is_dirty_ = false;
-  page->pin_count_ = 0;
-}
-
-void BufferPoolManagerInstance::ReadPageToPool(page_id_t page_id, frame_id_t target_frame) {
-  Page *target = pages_ + target_frame;
-  disk_manager_->ReadPage(page_id, target->data_);
-  target->page_id_ = page_id;
-  target->is_dirty_ = false;
-  target->pin_count_ = 0;
-  page_table_->Insert(page_id, target_frame);
-}
 
 }  // namespace bustub
