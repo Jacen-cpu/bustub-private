@@ -14,6 +14,8 @@
 
 #include <deque>
 #include <limits>
+#include <list>
+#include <memory>
 #include <mutex>  // NOLINT
 #include <queue>
 #include <string>
@@ -134,12 +136,25 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
-  struct Frame {
-    frame_id_t frame_id_;
-    size_t ref_time_{0};
-    bool is_evi_{false};
-    bool is_cached_{false};
-    bool is_alive_{false};
+  class FrameAttr {
+  public:
+    explicit FrameAttr(size_t init_time) {
+      ref_record_.emplace_back(init_time);
+    }
+  inline auto GetOldest() -> size_t { return ref_record_.front(); }
+  inline auto GetLatest() ->size_t { return ref_record_.back(); }
+  inline auto CanEvict() -> bool { return can_evict_; }
+  inline void SetEvict(bool can_evict) { can_evict_ = can_evict; } 
+  inline void RecordRef(size_t cur_time, bool full) { 
+    if (full) {
+      ref_record_.pop_front();
+    }
+    ref_record_.emplace_back(cur_time);
+  }
+  inline auto GetSize() -> size_t { return ref_record_.size(); }
+  private:
+    bool can_evict_{false};
+    std::deque<size_t> ref_record_{};
   };
 
  private:
@@ -152,9 +167,8 @@ class LRUKReplacer {
   std::mutex latch_;
 
   // my member variables
-  std::unordered_map<frame_id_t, Frame> frames_;
-  std::deque<frame_id_t> cached_queue_;
-  std::deque<frame_id_t> no_cached_queue_;
+  std::unordered_map<frame_id_t, std::shared_ptr<FrameAttr>> history_frames_;
+  std::unordered_map<frame_id_t, std::shared_ptr<FrameAttr>> cached_frames_;
   inline auto CheckFrame(frame_id_t frame_id) -> bool { return static_cast<size_t>(frame_id) <= replacer_size_; }
 };
 

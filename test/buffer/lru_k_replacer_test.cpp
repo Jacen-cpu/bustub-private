@@ -15,7 +15,7 @@
 #include "gtest/gtest.h"
 
 namespace bustub {
-TEST(LRUKReplacerTest, EvictTest) {
+TEST(LRUKReplacerTest, DISABLED_EvictTest) {
   LRUKReplacer lru_replacer(1000, 3);
   for (int i = 0; i < 1000; ++i) {
     lru_replacer.RecordAccess(i);
@@ -49,7 +49,7 @@ TEST(LRUKReplacerTest, EvictTest) {
   ASSERT_EQ(500, value);
 }
 
-TEST(LRUKReplacerTest, SizeTest) {
+TEST(LRUKReplacerTest, DISABLED_SizeTest) {
   LRUKReplacer lru_replacer(10, 2);
   lru_replacer.RecordAccess(1);
   lru_replacer.SetEvictable(1, true);

@@ -33,7 +33,7 @@
 namespace bustub {
 
 TEST(LeaderboardTest, Time) {
-  const size_t buffer_pool_size = 10000;
+  const size_t buffer_pool_size = 100000;
 
   // DiskManagerMemory *dm = new DiskManagerMemory();
   auto *dm = new DiskManager("test.db");
@@ -54,8 +54,8 @@ TEST(LeaderboardTest, Time) {
     bpm->DeletePage(i);
     bpm->NewPage(&temp);
     bpm->UnpinPage(temp, false);
-    // bpm->DeletePage(temp);
-    // bpm->NewPage(&temp);
+    bpm->DeletePage(temp);
+    bpm->NewPage(&temp);
   }
 
   // Shutdown the disk manager and remove the temporary file we created.
