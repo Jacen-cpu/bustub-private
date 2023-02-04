@@ -12,6 +12,7 @@
 
 #include "buffer/lru_k_replacer.h"
 #include <algorithm>
+#include <mutex>
 #include "common/config.h"
 #include "common/logger.h"
 
@@ -21,20 +22,16 @@ using std::make_pair;
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
-  latch_.lock();
-
+  std::lock_guard<std::mutex> lock(latch_);
   if (curr_size_ == 0) {
-    latch_.unlock();
     return false;
   }
-
   auto it = no_cached_queue_.begin();
   for (; it != no_cached_queue_.end(); it++) {
     if (frames_.find(*it)->second.is_evi_) {
       break;
     }
   }
-
   if (it != no_cached_queue_.end()) {
     *frame_id = *it;
     no_cached_queue_.erase(it);
@@ -48,7 +45,6 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     *frame_id = *it;
     cached_queue_.erase(it);
   }
-
   // this is how we find the evict page when all is inf+.
   // get the evi frame
   if (auto search = frames_.find(*frame_id); search != frames_.end()) {
@@ -57,16 +53,13 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     search->second.is_cached_ = false;
     curr_size_--;
   }
-
-  latch_.unlock();
   return true;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
-  latch_.lock();
+  std::lock_guard<std::mutex> lock(latch_);
   // check the frame id.
   if (!CheckFrame(frame_id)) {
-    latch_.unlock();
     throw "Invalid frame!";
   }
 
@@ -79,8 +72,6 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
       }
       no_cached_queue_.push_back(frame_id);
       search->second.ref_time_ = 1;
-
-      latch_.unlock();
       return;
     }
 
@@ -92,8 +83,6 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
       frame_id_t temp_id = *temp_it;
       cached_queue_.erase(temp_it);
       cached_queue_.push_back(temp_id);
-
-      latch_.unlock();
       return;
     }
 
@@ -117,17 +106,13 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
     frames_.insert(make_pair(frame_id, new_attr));
     no_cached_queue_.push_back(frame_id);
   }
-
-  latch_.unlock();
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
-  latch_.lock();
+  std::lock_guard<std::mutex> lock(latch_);
   if (!CheckFrame(frame_id)) {
-    latch_.unlock();
     throw "Invalid frame!";
   }
-
   if (auto search = frames_.find(frame_id); search != frames_.end()) {
     if (search->second.is_evi_ ^ set_evictable) {
       if (search->second.is_alive_) {
@@ -136,27 +121,20 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
       search->second.is_evi_ = set_evictable;
     }
   }
-
-  latch_.unlock();
 }
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
-  latch_.lock();
+  std::lock_guard<std::mutex> lock(latch_);
   if (!CheckFrame(frame_id)) {
-    latch_.unlock();
     throw "Invalid frame!";
   }
-
   if (curr_size_ == 0) {
-    latch_.unlock();
     return;
   }
-
   // remove frame from no cached and cached.
   if (auto search = frames_.find(frame_id); search != frames_.end()) {
     if (search->second.is_alive_) {
       if (!search->second.is_evi_) {
-        latch_.unlock();
         throw "non evictable frame!";
       }
       curr_size_--;
@@ -174,13 +152,11 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
       }
     }
   }
-
-  latch_.unlock();
 }
 
-// it's ok
 auto LRUKReplacer::Size() -> size_t {
   std::scoped_lock<std::mutex> lock(latch_);
   return curr_size_;
 }
+
 }  // namespace bustub

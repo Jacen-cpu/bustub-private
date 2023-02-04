@@ -186,7 +186,7 @@ auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
     // update free list
     free_list_.push_back(target_frame);
     DeallocatePage(page_id);
-  } 
+  }
   return true;
 }
 

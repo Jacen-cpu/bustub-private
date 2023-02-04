@@ -179,6 +179,5 @@ class BufferPoolManagerInstance : public BufferPoolManager {
 
   // TODO(student): You may add additional private members and helper functions
  private:
-
 };
 }  // namespace bustub

@@ -36,11 +36,11 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_PAGE_ID; }
 
 /**
- * @brief 
- * 
- * @param page_id 
- * @param rw 
- * @return BPlusTreePage* 
+ * @brief
+ *
+ * @param page_id
+ * @param rw
+ * @return BPlusTreePage*
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetPage(page_id_t page_id, RWType rw) -> BPlusTreePage * {
@@ -149,13 +149,13 @@ auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool left_most, OpType op,
 }
 
 /**
- * @brief 
- * 
- * @param page_id 
- * @param previous 
- * @param op 
- * @param transaction 
- * @return BPlusTreePage* 
+ * @brief
+ *
+ * @param page_id
+ * @param previous
+ * @param op
+ * @param transaction
+ * @return BPlusTreePage*
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::CrabingPage(page_id_t page_id, page_id_t previous, OpType op, Transaction *transaction)
@@ -173,12 +173,12 @@ auto BPLUSTREE_TYPE::CrabingPage(page_id_t page_id, page_id_t previous, OpType o
 }
 
 /**
- * @brief 
- * 
- * @param cur_id 
- * @param rw 
- * @param transaction 
- * @return INDEX_TEMPLATE_ARGUMENTS 
+ * @brief
+ *
+ * @param cur_id
+ * @param rw
+ * @param transaction
+ * @return INDEX_TEMPLATE_ARGUMENTS
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::FreePage(page_id_t cur_id, RWType rw, Transaction *transaction) {
@@ -497,18 +497,17 @@ auto BPLUSTREE_TYPE::StealSibling(LeafPage *deleting_leaf, InternalPage *parent_
   return true;
 }
 
-
 /**
- * @brief 
- * 
- * @param rest_leaf 
- * @param parent_internal 
- * @param merging_leaf 
- * @param target_index 
- * @param neber_index 
- * @param is_last 
- * @param transaction 
- * @return INDEX_TEMPLATE_ARGUMENTS 
+ * @brief
+ *
+ * @param rest_leaf
+ * @param parent_internal
+ * @param merging_leaf
+ * @param target_index
+ * @param neber_index
+ * @param is_last
+ * @param transaction
+ * @return INDEX_TEMPLATE_ARGUMENTS
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::MergeLeaf(LeafPage *rest_leaf, InternalPage *parent_internal, LeafPage *merging_leaf,
@@ -577,16 +576,16 @@ auto BPLUSTREE_TYPE::StealInternal(InternalPage *deleting_internal, InternalPage
 }
 
 /**
- * @brief 
- * 
- * @param deleting_internal 
- * @param parent_internal 
- * @param neber_internal 
- * @param target_index 
- * @param neber_index 
- * @param is_last 
- * @param transaction 
- * @return INDEX_TEMPLATE_ARGUMENTS 
+ * @brief
+ *
+ * @param deleting_internal
+ * @param parent_internal
+ * @param neber_internal
+ * @param target_index
+ * @param neber_index
+ * @param is_last
+ * @param transaction
+ * @return INDEX_TEMPLATE_ARGUMENTS
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::MergeInternal(InternalPage *deleting_internal, InternalPage *parent_internal,
@@ -620,11 +619,11 @@ void BPLUSTREE_TYPE::MergeInternal(InternalPage *deleting_internal, InternalPage
 }
 
 /**
- * @brief This is redistributing method. when we borrow(steal) leaf fail, 
+ * @brief This is redistributing method. when we borrow(steal) leaf fail,
  * we must invoke this method to recursively redistribute up the tree.
- * @param deleting_internal 
- * @param transaction 
- * @return INDEX_TEMPLATE_ARGUMENTS 
+ * @param deleting_internal
+ * @param transaction
+ * @return INDEX_TEMPLATE_ARGUMENTS
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::RedsbInternal(InternalPage *deleting_internal, Transaction *transaction) {
