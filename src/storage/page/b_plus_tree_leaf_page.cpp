@@ -159,7 +159,7 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::StealLast(MappingType *value) -> bool {
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator &comparator) -> bool {
   // if (index < GetSize() - 1) {
-    // std::copy(array_ + index + 1, array_ + GetSize(), array_ + index);
+  // std::copy(array_ + index + 1, array_ + GetSize(), array_ + index);
   // }
   // IncreaseSize(-1);
   // return true;

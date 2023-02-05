@@ -230,12 +230,12 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   int index = leaf_node_page->Search(key, comparator_);
   if (index != -1) {
     result->push_back(leaf_node_page->ValueAt(index));
-  } 
+  }
   // else {
-    // LOG_DEBUG("not found %ld", key.ToString());
-    // for (int i = 0; i < leaf_node_page->GetSize(); ++i) {
-      // LOG_DEBUG("elem is %ld", leaf_node_page->GetArray()[i].first.ToString());
-    // }
+  // LOG_DEBUG("not found %ld", key.ToString());
+  // for (int i = 0; i < leaf_node_page->GetSize(); ++i) {
+  // LOG_DEBUG("elem is %ld", leaf_node_page->GetArray()[i].first.ToString());
+  // }
   // }
   FreePage(leaf_node_page->GetPageId(), RWType::READ, transaction);
   return index != -1;

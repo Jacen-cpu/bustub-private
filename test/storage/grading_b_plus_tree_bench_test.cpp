@@ -46,7 +46,7 @@
 namespace bustub {
 // helper function to launch multiple threads
 template <typename... Args>
-void LaunchParallelTest(uint64_t num_threads, uint64_t txn_id_start, Args &&... args) {
+void LaunchParallelTest(uint64_t num_threads, uint64_t txn_id_start, Args &&...args) {
   std::vector<std::thread> thread_group;
 
   // Launch a group of threads
@@ -209,12 +209,12 @@ void BPlusTreeBenchmarkCall() {
     // iterate through all the keys in BPlusTree
     // size_t size = 0;
     // for (auto &pair : tree.Begin()) {
-      // if ((pair.first).ToString() % sieve == 1) {  // check remain keys to be odd
-        // size++;
-      // } else {
-        // success = false;
-        // break;
-      // }
+    // if ((pair.first).ToString() % sieve == 1) {  // check remain keys to be odd
+    // size++;
+    // } else {
+    // success = false;
+    // break;
+    // }
     // }
 
     // Get End time and add to running total

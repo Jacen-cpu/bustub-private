@@ -15,7 +15,6 @@
 #include <cassert>
 #include <deque>
 #include <memory>
-#include <mutex>
 #include "common/config.h"
 #include "common/exception.h"
 #include "common/logger.h"
