@@ -30,7 +30,6 @@ BufferPoolManagerInstance::BufferPoolManagerInstance(size_t pool_size, DiskManag
   for (size_t i = 0; i < pool_size_; ++i) {
     free_list_.emplace_back(static_cast<int>(i));
   }
-  LOG_DEBUG("buffer pool size is %zu, replacer_k is %zu", pool_size, replacer_k);
 }
 
 BufferPoolManagerInstance::~BufferPoolManagerInstance() {

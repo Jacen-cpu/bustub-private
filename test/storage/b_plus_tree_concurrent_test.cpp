@@ -917,7 +917,7 @@ TEST(BPlusTreeConcurrent, MixTest3Call) {
     // Add perserved_keys
     std::vector<int64_t> perserved_keys;
     std::vector<int64_t> dynamic_keys;
-    size_t total_keys = 1000;
+    size_t total_keys = 10000;
     size_t sieve = 5;
     for (size_t i = 1; i <= total_keys; i++) {
       if (i % sieve == 0) {

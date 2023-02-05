@@ -98,7 +98,10 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &val
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::InsertFirst(const MappingType *value) {
-  std::copy(array_, array_ + GetSize(), array_ + 1);
+  int size = GetSize();
+  for (int i = size; i >= 0; --i) {
+    array_[i + 1] = array_[i];
+  }
   array_[0] = *value;
   IncreaseSize(1);
 }
@@ -121,9 +124,11 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::StealFirst(MappingType *value) -> bool {
   if (GetSize() - 1 < GetMaxSize() / 2) {
     return false;
   }
-
   *value = array_[0];
-  std::copy(array_ + 1, array_ + GetSize(), array_);
+  int size = GetSize();
+  for (int i = 0; i < size; ++i) {
+    array_[i] = array_[i + 1];
+  }
   IncreaseSize(-1);
   return true;
 }
@@ -153,17 +158,18 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::StealLast(MappingType *value) -> bool {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator &comparator) -> bool {
+  // if (index < GetSize() - 1) {
+    // std::copy(array_ + index + 1, array_ + GetSize(), array_ + index);
+  // }
+  // IncreaseSize(-1);
+  // return true;
   int index = Search(key, comparator);
   if (index == -1) {
     return false;
   }
-
-  // /* check if we need to update the parent key*/
-  // if (index == 0) {
-  // *need_update = true;
-  // }
-  if (index < GetSize() - 1) {
-    std::copy(array_ + index + 1, array_ + GetSize(), array_ + index);
+  int size = GetSize();
+  for (int i = index; i < size; ++i) {
+    array_[i] = array_[i + 1];
   }
   IncreaseSize(-1);
   return true;
@@ -176,7 +182,6 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MergeFromLeft(LeafPage *rest_leaf) {
     return;
   }
   auto rest_array = rest_leaf->GetArray();
-
   std::copy(array_, array_ + GetSize(), array_ + size);
   std::copy(rest_array, rest_array + size, array_);
   IncreaseSize(size);

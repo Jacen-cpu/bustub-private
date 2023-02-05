@@ -132,7 +132,6 @@ auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool left_most, OpType op,
   auto curr_node_page = GetRootPage(op, transaction);
   page_id_t next_page_id;
   if (transaction == nullptr) {
-    LOG_DEBUG("#test:GetValue %ld", key.ToString());
     while (!curr_node_page->IsLeafPage()) {
       auto internal_node_page = reinterpret_cast<InternalPage *>(curr_node_page);
       next_page_id = left_most ? internal_node_page->ValueAt(0) : internal_node_page->SearchExit(key, comparator_);
@@ -218,7 +217,6 @@ void BPLUSTREE_TYPE::FreePage(page_id_t cur_id, RWType rw, Transaction *transact
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
-  // LOG_DEBUG("get the value of %ld ", key.ToString());
   root_latch_.lock();
   if (IsEmpty()) {
     root_latch_.unlock();
@@ -226,12 +224,19 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   }
   root_latch_.unlock();
 
+  // LOG_DEBUG("get the value of %ld ", key.ToString());
   auto leaf_node_page = FindLeafPage(key, false, OpType::READ, transaction);
-  // LOG_DEBUG("Leaf page is %d", leaf_node_page->GetPageId());
+  // LOG_DEBUG("Leaf page is %d, size is %d", leaf_node_page->GetPageId(), leaf_node_page->GetSize());
   int index = leaf_node_page->Search(key, comparator_);
   if (index != -1) {
     result->push_back(leaf_node_page->ValueAt(index));
-  }
+  } 
+  // else {
+    // LOG_DEBUG("not found %ld", key.ToString());
+    // for (int i = 0; i < leaf_node_page->GetSize(); ++i) {
+      // LOG_DEBUG("elem is %ld", leaf_node_page->GetArray()[i].first.ToString());
+    // }
+  // }
   FreePage(leaf_node_page->GetPageId(), RWType::READ, transaction);
   return index != -1;
 }
@@ -250,6 +255,7 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
   /*== Add a new tree ==*/
   root_latch_.lock();
+  // LOG_DEBUG("insert key %ld, value %s", key.ToString(), value.ToString().c_str());
   if (root_page_id_ == INVALID_PAGE_ID) {
     page_id_t new_root_page_id;
     auto new_root = CreateLeafPage(&new_root_page_id, INVALID_PAGE_ID, RWType::WRITE);
@@ -434,11 +440,15 @@ void BPLUSTREE_TYPE::UpdateParentId(page_id_t page_id, page_id_t p_page_id) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
+  root_latch_.lock();
   if (IsEmpty()) {
+    root_latch_.unlock();
     return;
   }
-  LeafPage *deleting_leaf = FindLeafPage(key, false, OpType::REMOVE, transaction);
+  root_latch_.unlock();
 
+  // LOG_DEBUG("remove key %ld", key.ToString());
+  LeafPage *deleting_leaf = FindLeafPage(key, false, OpType::REMOVE, transaction);
   if (deleting_leaf->Remove(key, comparator_)) {
     if (deleting_leaf->IsRootPage()) {
       if (deleting_leaf->GetSize() <= 0) {
@@ -466,7 +476,6 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
         MergeLeaf(deleting_leaf, parent_internal, neber_leaf, target_index, neber_index, is_last, transaction);
       }
       /* ============================================================================================== */
-      // Draw(buffer_pool_manager_, "Last Remve Finish.dot");
       UnpinPage(reinterpret_cast<Page *>(parent_internal), parent_internal->GetPageId(), true, RWType::UPDATE);
     }
   }

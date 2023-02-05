@@ -94,7 +94,6 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertLast(const MappingType *value) {
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {
-  // std::copy(array_ + index + 1, array_ + GetSize() + 1, array_ + index);
   int size = GetSize();
   for (int i = index; i < size; ++i) {
     array_[i] = array_[i + 1];
