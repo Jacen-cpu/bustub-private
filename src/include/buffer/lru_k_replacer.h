@@ -145,6 +145,8 @@ class LRUKReplacer {
   inline auto GetLatest() ->size_t { return ref_record_.back(); }
   inline auto CanEvict() -> bool { return can_evict_; }
   inline void SetEvict(bool can_evict) { can_evict_ = can_evict; } 
+  // inline void SetInUse(bool in_use) { in_use_ = in_use; }
+  // inline auto GetInUse() -> bool { return in_use_; }
   inline void RecordRef(size_t cur_time, bool full) { 
     if (full) {
       ref_record_.pop_front();
@@ -154,6 +156,7 @@ class LRUKReplacer {
   inline auto GetSize() -> size_t { return ref_record_.size(); }
   private:
     bool can_evict_{false};
+    // bool in_use_{false};
     std::deque<size_t> ref_record_{};
   };
 

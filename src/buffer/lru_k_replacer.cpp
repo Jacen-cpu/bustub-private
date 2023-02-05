@@ -29,6 +29,7 @@ LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_fra
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
   if (curr_size_ <= 0) {
+    LOG_DEBUG("Evict Fail!");
     return false;
   }
   /* === evict in history frames === */
@@ -36,7 +37,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     size_t min_time;
     frame_id_t min_frame_id = -1;
     for (const auto &frame : history_frames_) {
-      LOG_DEBUG("history frame %d, oldest time %zu", frame.first, frame.second->GetOldest());
+      // LOG_DEBUG("history frame %d, oldest time %zu", frame.first, frame.second->GetOldest());
       if (frame.second->CanEvict()) {
         if (min_frame_id == -1) {
           min_time = frame.second->GetOldest();
@@ -50,10 +51,11 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
       }
     }
     if (min_frame_id != -1) {
-      LOG_DEBUG("the min frame id is %d, min time is %zu", min_frame_id, min_time);
+      // LOG_DEBUG("the min frame id is %d, min time is %zu", min_frame_id, min_time);
       *frame_id = min_frame_id;
       history_frames_.erase(min_frame_id);
       curr_size_--;
+      LOG_DEBUG("Evict frame %d", min_frame_id);
       return true;
     }
   }
@@ -77,10 +79,12 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   *frame_id = min_frame_id;
   cached_frames_.erase(min_frame_id);
   curr_size_--;
+  LOG_DEBUG("Evict frame %d", min_frame_id);
   return true;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
+  LOG_DEBUG("Record frame %d", frame_id);
   std::lock_guard<std::mutex> lock(latch_);
   BUSTUB_ASSERT(CheckFrame(frame_id), "invalid frame_id");
   current_timestamp_++;
@@ -91,11 +95,11 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
   }
   // find in history map
   if (auto frame = history_frames_.find(frame_id); frame != history_frames_.end()) {
-    LOG_DEBUG("size is %zu", frame->second->GetSize());
+    // LOG_DEBUG("size is %zu", frame->second->GetSize());
     frame->second->RecordRef(current_timestamp_, false);
     if (frame->second->GetSize() >= k_) {
       cached_frames_.insert({frame->first, frame->second});
-      LOG_DEBUG("transfer frame %d", frame->first);
+      // LOG_DEBUG("transfer frame %d", frame->first);
       history_frames_.erase(frame);
     }
     return;
@@ -108,6 +112,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   std::lock_guard<std::mutex> lock(latch_);
   BUSTUB_ASSERT(CheckFrame(frame_id), "invalid frame_id");
+  LOG_DEBUG("Set frame %d, evictable %d", frame_id, set_evictable);
   // find in history
   if (auto frame = history_frames_.find(frame_id); frame != history_frames_.end()) {
     if (set_evictable ^ frame->second->CanEvict()) {
@@ -128,7 +133,9 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
 void LRUKReplacer::Remove(frame_id_t frame_id) {
   std::lock_guard<std::mutex> lock(latch_);
   BUSTUB_ASSERT(CheckFrame(frame_id), "invalid frame_id");
+  LOG_DEBUG("Remove frame %d", frame_id);
   if (curr_size_ <= 0) {
+    LOG_DEBUG("Remove Fail!");
     return;
   }
   curr_size_--;
