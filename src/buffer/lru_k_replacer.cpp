@@ -46,7 +46,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
           continue;
         }
         if (frame.second->GetOldest() < min_time) {
-          min_time = frame.second->GetLatest();
+          min_time = frame.second->GetOldest();
           min_frame_id = frame.first;
         }
       }
@@ -97,7 +97,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
   if (auto frame = history_frames_.find(frame_id); frame != history_frames_.end()) {
     frame->second->RecordRef(current_timestamp_, false);
     if (frame->second->GetSize() >= k_) {
-      cached_frames_.insert({frame->first, frame->second});
+      cached_frames_.insert(*frame);
       history_frames_.erase(frame);
     }
     return;
