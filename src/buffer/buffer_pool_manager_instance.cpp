@@ -79,7 +79,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   std::lock_guard<std::mutex> lock(latch_);
-  LOG_DEBUG("Fetch page %d", page_id);
+  // LOG_DEBUG("Fetch page %d", page_id);
   Page *target = nullptr;
   frame_id_t target_frame;
   /* can find in buffer pool */
