@@ -25,7 +25,7 @@ namespace bustub {
 using std::make_pair;
 
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {
-  LOG_DEBUG("replace size is %zu, k is %zu", num_frames, k);
+  // LOG_DEBUG("replace size is %zu, k is %zu", num_frames, k);
 }
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
@@ -84,8 +84,8 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
-  LOG_DEBUG("Record frame %d", frame_id);
   std::lock_guard<std::mutex> lock(latch_);
+  // LOG_DEBUG("Record frame %d", frame_id);
   current_timestamp_++;
   BUSTUB_ASSERT(CheckFrame(frame_id), "invalid frame_id");
   // find in cached map
@@ -110,7 +110,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   std::lock_guard<std::mutex> lock(latch_);
   BUSTUB_ASSERT(CheckFrame(frame_id), "invalid frame_id");
-  LOG_DEBUG("Set frame %d, evictable %d", frame_id, set_evictable);
+  // LOG_DEBUG("Set frame %d, evictable %d", frame_id, set_evictable);
   // find in history
   if (auto frame = history_frames_.find(frame_id); frame != history_frames_.end()) {
     if (set_evictable ^ frame->second->CanEvict()) {

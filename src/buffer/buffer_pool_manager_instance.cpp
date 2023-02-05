@@ -30,6 +30,7 @@ BufferPoolManagerInstance::BufferPoolManagerInstance(size_t pool_size, DiskManag
   for (size_t i = 0; i < pool_size_; ++i) {
     free_list_.emplace_back(static_cast<int>(i));
   }
+  LOG_DEBUG("buffer pool size is %zu, replacer_k is %zu", pool_size, replacer_k);
 }
 
 BufferPoolManagerInstance::~BufferPoolManagerInstance() {
@@ -41,6 +42,7 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   std::lock_guard<std::mutex> lock(latch_);
   page_id_t new_page_id = AllocatePage();
+  LOG_DEBUG("new page %d", new_page_id);
   *page_id = new_page_id;
   Page *target = nullptr;
   frame_id_t target_frame;
@@ -76,6 +78,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   std::lock_guard<std::mutex> lock(latch_);
+  LOG_DEBUG("Fetch page %d", page_id);
   Page *target = nullptr;
   frame_id_t target_frame;
   /* can find in buffer pool */
@@ -121,6 +124,7 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
+  LOG_DEBUG("Unpin page %d", page_id);
   frame_id_t target_frame;
   Page *target = nullptr;
   if (page_table_->Find(page_id, target_frame)) {
@@ -167,6 +171,7 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
+  LOG_DEBUG("Unpin page %d", page_id);
   frame_id_t target_frame;
   Page *target = nullptr;
   if (page_table_->Find(page_id, target_frame)) {
