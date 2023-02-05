@@ -54,6 +54,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   } else {
     // try evict
     if (!replacer_->Evict(&target_frame)) {
+      LOG_DEBUG("new nullptr!!!");
       return nullptr;
     }
     target = pages_ + target_frame;
@@ -99,6 +100,7 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   } else {
     // try evict
     if (!replacer_->Evict(&target_frame)) {
+      LOG_DEBUG("Fetch nullptr!!!");
       return nullptr;
     }
     target = pages_ + target_frame;
@@ -145,6 +147,7 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
 
 auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
+  LOG_DEBUG("Flush page %d", page_id);
   frame_id_t target_frame;
   Page *target = nullptr;
   if (page_table_->Find(page_id, target_frame)) {
@@ -159,6 +162,7 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   std::lock_guard<std::mutex> lock(latch_);
+  LOG_DEBUG("Flush all page");
   Page *target = pages_;
   for (size_t i = 0; i < pool_size_; ++i) {
     target += i;
