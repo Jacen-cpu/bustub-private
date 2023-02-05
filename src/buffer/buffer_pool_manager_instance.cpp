@@ -126,7 +126,7 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
-  LOG_DEBUG("Unpin page %d", page_id);
+  // LOG_DEBUG("Unpin page %d", page_id);
   frame_id_t target_frame;
   Page *target = nullptr;
   if (page_table_->Find(page_id, target_frame)) {
@@ -147,7 +147,7 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
 
 auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
-  LOG_DEBUG("Flush page %d", page_id);
+  // LOG_DEBUG("Flush page %d", page_id);
   frame_id_t target_frame;
   Page *target = nullptr;
   if (page_table_->Find(page_id, target_frame)) {
@@ -162,10 +162,9 @@ auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   std::lock_guard<std::mutex> lock(latch_);
-  LOG_DEBUG("Flush all page");
-  Page *first_page = pages_;
+  // LOG_DEBUG("Flush all page");
   for (size_t i = 0; i < pool_size_; ++i) {
-    auto target = first_page + i;
+    auto target = pages_ + i;
     if (target->page_id_ != INVALID_PAGE_ID) {
       disk_manager_->WritePage(target->page_id_, target->data_);
       target->is_dirty_ = false;
@@ -175,7 +174,7 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
-  LOG_DEBUG("Unpin page %d", page_id);
+  // LOG_DEBUG("Unpin page %d", page_id);
   frame_id_t target_frame;
   Page *target = nullptr;
   if (page_table_->Find(page_id, target_frame)) {
