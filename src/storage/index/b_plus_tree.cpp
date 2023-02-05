@@ -132,6 +132,7 @@ auto BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool left_most, OpType op,
   auto curr_node_page = GetRootPage(op, transaction);
   page_id_t next_page_id;
   if (transaction == nullptr) {
+    LOG_DEBUG("#test:GetValue %ld", key.ToString());
     while (!curr_node_page->IsLeafPage()) {
       auto internal_node_page = reinterpret_cast<InternalPage *>(curr_node_page);
       next_page_id = left_most ? internal_node_page->ValueAt(0) : internal_node_page->SearchExit(key, comparator_);
