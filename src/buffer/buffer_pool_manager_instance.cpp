@@ -42,7 +42,7 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   std::lock_guard<std::mutex> lock(latch_);
   page_id_t new_page_id = AllocatePage();
-  LOG_DEBUG("new page %d", new_page_id);
+  // LOG_DEBUG("new page %d", new_page_id);
   *page_id = new_page_id;
   Page *target = nullptr;
   frame_id_t target_frame;
