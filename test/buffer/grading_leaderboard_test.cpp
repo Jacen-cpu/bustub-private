@@ -33,11 +33,11 @@
 namespace bustub {
 
 TEST(LeaderboardTest, Time) {
-  const size_t buffer_pool_size = 100000;
+  const size_t buffer_pool_size = 15000;
 
   // DiskManagerMemory *dm = new DiskManagerMemory();
   auto *dm = new DiskManager("test.db");
-  BufferPoolManager *bpm = new BufferPoolManagerInstance(buffer_pool_size, dm);
+  BufferPoolManager *bpm = new BufferPoolManagerInstance(buffer_pool_size, dm, 100);
   page_id_t temp;
   for (size_t i = 0; i < buffer_pool_size; i++) {
     LOG_DEBUG("new page");
