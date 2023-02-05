@@ -86,10 +86,10 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
-  LOG_DEBUG("Record frame %d", frame_id);
+  // LOG_DEBUG("Record frame %d", frame_id);
   std::lock_guard<std::mutex> lock(latch_);
-  BUSTUB_ASSERT(CheckFrame(frame_id), "invalid frame_id");
   current_timestamp_++;
+  BUSTUB_ASSERT(CheckFrame(frame_id), "invalid frame_id");
   // find in cached map
   if (auto frame = cached_frames_.find(frame_id); frame != cached_frames_.end()) {
     frame->second->RecordRef(current_timestamp_, true);
@@ -114,7 +114,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   std::lock_guard<std::mutex> lock(latch_);
   BUSTUB_ASSERT(CheckFrame(frame_id), "invalid frame_id");
-  LOG_DEBUG("Set frame %d, evictable %d", frame_id, set_evictable);
+  // LOG_DEBUG("Set frame %d, evictable %d", frame_id, set_evictable);
   // find in history
   if (auto frame = history_frames_.find(frame_id); frame != history_frames_.end()) {
     if (set_evictable ^ frame->second->CanEvict()) {

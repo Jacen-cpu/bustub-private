@@ -137,24 +137,23 @@ class LRUKReplacer {
   auto Size() -> size_t;
 
   class FrameAttr {
-  public:
-    explicit FrameAttr(size_t init_time) {
-      ref_record_.emplace_back(init_time);
+   public:
+    explicit FrameAttr(size_t init_time) { ref_record_.emplace_back(init_time); }
+    inline auto GetOldest() -> size_t { return ref_record_.front(); }
+    inline auto GetLatest() -> size_t { return ref_record_.back(); }
+    inline auto CanEvict() -> bool { return can_evict_; }
+    inline void SetEvict(bool can_evict) { can_evict_ = can_evict; }
+    // inline void SetInUse(bool in_use) { in_use_ = in_use; }
+    // inline auto GetInUse() -> bool { return in_use_; }
+    inline void RecordRef(size_t cur_time, bool full) {
+      if (full) {
+        ref_record_.pop_front();
+      }
+      ref_record_.emplace_back(cur_time);
     }
-  inline auto GetOldest() -> size_t { return ref_record_.front(); }
-  inline auto GetLatest() ->size_t { return ref_record_.back(); }
-  inline auto CanEvict() -> bool { return can_evict_; }
-  inline void SetEvict(bool can_evict) { can_evict_ = can_evict; } 
-  // inline void SetInUse(bool in_use) { in_use_ = in_use; }
-  // inline auto GetInUse() -> bool { return in_use_; }
-  inline void RecordRef(size_t cur_time, bool full) { 
-    if (full) {
-      ref_record_.pop_front();
-    }
-    ref_record_.emplace_back(cur_time);
-  }
-  inline auto GetSize() -> size_t { return ref_record_.size(); }
-  private:
+    inline auto GetSize() -> size_t { return ref_record_.size(); }
+
+   private:
     bool can_evict_{false};
     // bool in_use_{false};
     std::deque<size_t> ref_record_{};
