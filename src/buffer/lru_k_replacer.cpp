@@ -24,7 +24,9 @@
 namespace bustub {
 using std::make_pair;
 
-LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
+LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {
+  LOG_DEBUG("replace size is %zu, k is %zu", num_frames, k);
+}
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   std::lock_guard<std::mutex> lock(latch_);
@@ -138,12 +140,12 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
     LOG_DEBUG("Remove Fail!");
     return;
   }
-  curr_size_--;
   if (auto frame = history_frames_.find(frame_id); frame != history_frames_.end()) {
     if (!frame->second->CanEvict()) {
       throw Exception("frame can't be evicted");
     }
     history_frames_.erase(frame);
+    curr_size_--;
     return;
   }
   // find in cache
@@ -152,6 +154,7 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
       throw Exception("frame can't be evicted");
     }
     cached_frames_.erase(frame);
+    curr_size_--;
   }
 }
 
