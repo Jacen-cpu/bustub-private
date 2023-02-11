@@ -16,6 +16,7 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <utility>
 #include "common/logger.h"
 #include "storage/page/page.h"
@@ -72,82 +73,61 @@ auto ExtendibleHashTable<K, V>::GetNumBucketsInternal() const -> int {
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
-  latch_.lock();
-
+  std::lock_guard<std::mutex> lock(latch_);
   int dir_index = IndexOf(key);
   auto target_bucket = dir_.at(dir_index);
-
   if (!target_bucket) {
-    latch_.unlock();
     return false;
   }
-
   bool res = target_bucket->Find(key, value);
-  latch_.unlock();
   return res;
 }
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
-  latch_.lock();
+  std::lock_guard<std::mutex> lock(latch_);
   int dir_index = IndexOf(key);
-
   auto target_it = dir_.begin() + dir_index;
   auto target_bucket = *target_it;
-
   if (!target_bucket) {
-    latch_.unlock();
     return false;
   }
-
   bool res = target_bucket->Remove(key);
-
   // remove the bucket if it's empty.
   if (target_bucket->IsEmpty()) {
     num_buckets_--;
   }
-
-  latch_.unlock();
   return res;
 }
 
 template <typename K, typename V>
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
-  latch_.lock();
+  std::lock_guard<std::mutex> lock(latch_);
   int dir_index = IndexOf(key);
-
   auto target_bucket = dir_.at(dir_index);
-
   if (!target_bucket) {
     *(dir_.begin() + dir_index) = GetNewBucket();
     target_bucket = dir_.at(dir_index);
   }
-
   if (target_bucket->IsEmpty()) {
     num_buckets_++;
   }
-
   // It's very tedious!
   // we may change the target_bucket after redistribution.
   while (!target_bucket->Insert(key, value)) {
     if (target_bucket->GetDepth() == global_depth_) {
       // increase the global depth.
       global_depth_++;
-
       // double the dir_ size.
       int old_dir_size = dir_.size();
       dir_.resize(2 * old_dir_size);
       std::copy(dir_.begin(), dir_.begin() + old_dir_size, dir_.begin() + old_dir_size);
     }
-    // above code is OK.
-
     RedistributeBucket(target_bucket);
     num_buckets_++;
-
     // update the target_bucket
     target_bucket = dir_.at(IndexOf(key));
   }
-  latch_.unlock();
 }
 
 // the default distribution method

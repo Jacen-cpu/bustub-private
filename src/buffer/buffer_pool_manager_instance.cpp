@@ -164,7 +164,7 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
   // LOG_DEBUG("Flush all page");
   for (size_t i = 0; i < pool_size_; ++i) {
     auto target = pages_ + i;
-    if (target->page_id_ != INVALID_PAGE_ID) {
+    if (target->page_id_ != INVALID_PAGE_ID && target->IsDirty()) {
       disk_manager_->WritePage(target->page_id_, target->data_);
       target->is_dirty_ = false;
     }

@@ -395,11 +395,11 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
 }
 
 auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool {
-  LOG_DEBUG("#TRY LOCK ROW# #transaction:%d lock_row:%d #lock_table:%d #lock_mode:%d, isolation level is %d",
-            txn->GetTransactionId(), rid.GetSlotNum(), oid, lock_mode, txn->GetIsolationLevel());
+  // LOG_DEBUG("#TRY LOCK ROW# #transaction:%d lock_row:%d #lock_table:%d #lock_mode:%d, isolation level is %d",
+            // txn->GetTransactionId(), rid.GetSlotNum(), oid, lock_mode, txn->GetIsolationLevel());
   if (lock_mode != LockMode::EXCLUSIVE && lock_mode != LockMode::SHARED) {
     txn->SetState(TransactionState::ABORTED);
-    LOG_DEBUG("attemped intention lock on row");
+     LOG_DEBUG("attemped intention lock on row");
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_INTENTION_LOCK_ON_ROW);
   }
   /*=================== check table lock =======================*/
