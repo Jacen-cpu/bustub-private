@@ -114,6 +114,7 @@ void BPLUSTREE_TYPE::UnpinPage(Page *page, page_id_t page_id, bool is_dirty, RWT
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::DeletePage(Page *page, page_id_t page_id, bool is_dirty, RWType rw) {
   rw == RWType::READ ? page->RUnlatch() : page->WUnlatch();
+  // it's not atomic!!!
   buffer_pool_manager_->UnpinPage(page_id, is_dirty);
   while (page->GetPinCount() != 0) {
   }
