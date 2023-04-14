@@ -99,7 +99,7 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
   } else {
     // try evict
     if (!replacer_->Evict(&target_frame)) {
-      LOG_DEBUG("Fetch nullptr!!!");
+      // LOG_DEBUG("Fetch nullptr!!!");
       return nullptr;
     }
     target = pages_ + target_frame;
